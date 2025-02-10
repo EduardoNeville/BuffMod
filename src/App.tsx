@@ -1,9 +1,9 @@
 import "@/input.css";
-import DashboardPage from "./app/dashboard/page";
+import { Nav } from "./Navigation";
 
 function App() {
   return (
-    <DashboardPage />
+    <Nav />
   );
 }
 
