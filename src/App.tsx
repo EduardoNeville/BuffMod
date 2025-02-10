@@ -1,9 +1,12 @@
 import "@/input.css";
-import { Nav } from "./Navigation";
+import { Navigation } from "./Navigation";
+import { ThemeProvider } from "./components/theme-provider";
 
 function App() {
   return (
-    <Nav />
+    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+      <Navigation />
+    </ThemeProvider>
   );
 }
 

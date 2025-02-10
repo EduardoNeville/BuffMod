@@ -5,17 +5,31 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
 import LoginPage from "@/app/login/page";
 import DashboardPage from "@/app/dashboard/page";
 
-export const Nav: React.FC<> = () => {
+const isAuthenticated = (): boolean => {
+  return !!localStorage.getItem("authToken");
+};
+
+// Protected Route Component
+const ProtectedRoute: React.FC<{ element: JSX.Element }> = ({ element }) => {
+  return isAuthenticated() ? element : <Navigate to="/login" />;
+};
+
+// Public Route (Prevents logged-in users from accessing login)
+const PublicRoute: React.FC<{ element: JSX.Element }> = ({ element }) => {
+  return !isAuthenticated() ? element : <Navigate to="/home" />;
+};
+
+export const Navigation: React.FC = () => {
   return (
     <Router>
       <Routes>
-        {/* Redirect to Home if logged in, otherwise show Login */}
-        <Route path="/login" element={<LoginPage />} />
+        {/* Public Route: Redirect if already authenticated */}
+        <Route path="/login" element={<PublicRoute element={<LoginPage />} />} />
+        
+        {/* Protected Route: Redirect to Login if not authenticated */}
+        <Route path="/home" element={<ProtectedRoute element={<DashboardPage />} />} />
 
-        {/* Redirect to Login if not logged in */}
-        <Route path="/home" element={<DashboardPage />} />
-
-        {/* Default Route */}
+        {/* Default route: Redirect unknown paths to login */}
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </Router>
