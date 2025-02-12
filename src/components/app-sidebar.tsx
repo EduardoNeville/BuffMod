@@ -1,12 +1,11 @@
 import * as React from "react"
 import {
   AudioWaveform,
-  BookOpen,
-  Bot,
+  BookUser,
   Command,
   GalleryVerticalEnd,
-  Settings2,
-  SquareTerminal,
+  Settings,
+  Share2,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -47,9 +46,9 @@ const data = {
   ],
   navMain: [
     {
-      title: "Playground",
+      title: "Clients",
       url: "#",
-      icon: SquareTerminal,
+      icon: BookUser,
       isActive: true,
       items: [
         {
@@ -67,43 +66,16 @@ const data = {
       ],
     },
     {
-      title: "Models",
+      title: "Social Media",
       url: "#",
-      icon: Bot,
+      icon: Share2,
       items: [
         {
-          title: "Genesis",
+          title: "Publish",
           url: "#",
         },
         {
-          title: "Explorer",
-          url: "#",
-        },
-        {
-          title: "Quantum",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Documentation",
-      url: "#",
-      icon: BookOpen,
-      items: [
-        {
-          title: "Introduction",
-          url: "#",
-        },
-        {
-          title: "Get Started",
-          url: "#",
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-        },
-        {
-          title: "Changelog",
+          title: "Analytics",
           url: "#",
         },
       ],
@@ -111,7 +83,7 @@ const data = {
     {
       title: "Settings",
       url: "#",
-      icon: Settings2,
+      icon: Settings,
       items: [
         {
           title: "General",

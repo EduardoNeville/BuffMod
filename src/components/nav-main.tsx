@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronRight, type LucideIcon } from "lucide-react"
+import { ChevronRight, Plus, type LucideIcon } from "lucide-react"
 
 import {
   Collapsible,
@@ -17,6 +17,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
+import { Button } from "./ui/button"
 
 export function NavMain({
   items,
@@ -34,7 +35,7 @@ export function NavMain({
 }) {
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Platform</SidebarGroupLabel>
+      <SidebarGroupLabel>Modules</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => (
           <Collapsible
@@ -67,6 +68,9 @@ export function NavMain({
             </SidebarMenuItem>
           </Collapsible>
         ))}
+        <Button className="bg-transparent" variant="secondary">
+          <Plus /> Add Module
+        </Button>
       </SidebarMenu>
     </SidebarGroup>
   )
