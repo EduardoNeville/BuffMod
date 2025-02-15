@@ -9,7 +9,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
 import { Search, Plus, ChevronDown, ChevronUp } from "lucide-react"
-import SocialMediaNewPost from "./social-media-new-post"
+import SocialMediaNewPost from "@/app/dashboard/modules/social-media/social-media-new-post"
+import { invoke } from "@tauri-apps/api"
 
 export default function SocialMediaHeader() {
   // Example channel list state, can be updated dynamically
@@ -17,6 +18,10 @@ export default function SocialMediaHeader() {
   // TODO: Backend
   const [channels, setChannels] = useState(["General", "Marketing", "Development"])
   const [isOpen, setIsOpen] = useState(false)
+
+  const handleAddChannel = () => {
+    invoke('greet', { name: 'World'}).then((response) => console.log(response))
+  };
 
   return (
     <header className="flex items-center justify-between bg-background px-4 py-2 border-b border-border">
