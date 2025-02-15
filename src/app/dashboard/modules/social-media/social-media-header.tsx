@@ -8,25 +8,30 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
-import { Search, Plus, ChevronDown } from "lucide-react"
+import { Search, Plus, ChevronDown, ChevronUp } from "lucide-react"
+import SocialMediaNewPost from "./social-media-new-post"
 
 export default function SocialMediaHeader() {
   // Example channel list state, can be updated dynamically
   // TODO: Translate
   // TODO: Backend
   const [channels, setChannels] = useState(["General", "Marketing", "Development"])
+  const [isOpen, setIsOpen] = useState(false)
 
   return (
     <header className="flex items-center justify-between bg-background px-4 py-2 border-b border-border">
       <div className="flex items-center gap-4">
         {/* Channels Dropdown or Add Channel Button */}
         {channels.length > 0 ? (
-          <DropdownMenu>
+          <DropdownMenu onOpenChange={setIsOpen}>
             <DropdownMenuTrigger asChild>
               <Button variant="outline">
-                {/* TODO: Translate */}
                 Channels
-                <ChevronDown className="ml-2 h-4 w-4" />
+                {isOpen ? (
+                  <ChevronUp className="ml-2 h-4 w-4 transition-transform" />
+                ) : (
+                  <ChevronDown className="ml-2 h-4 w-4 transition-transform" />
+                )}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-48" align="start">
@@ -53,11 +58,7 @@ export default function SocialMediaHeader() {
         <Separator orientation="vertical" className="h-6" />
 
         {/* Create Post Button */}
-        <Button variant="default">
-          <Plus className="mr-2 h-4 w-4" />
-          {/* TODO: Translate */}
-          Create Post
-        </Button>
+        <SocialMediaNewPost />
       </div>
 
       {/* Search Button */}

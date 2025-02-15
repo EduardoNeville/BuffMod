@@ -1,11 +1,11 @@
-import Calendar from "@/components/ui/calendar"
+import CalendarEvents from "@/components/ui/calendar-events"
 import SocialMediaHeader from "./social-media-header"
 
 export default function SocialMediaMain() {
   return (
     <div>
       <SocialMediaHeader />
-      <Calendar />
+      <CalendarEvents />
     </div>
   )
 }
