@@ -31,7 +31,7 @@ export function LoginForm({
           <form className="p-6 md:p-8">
             <div className="flex flex-col gap-6">
               <div className="flex flex-col items-center text-center">
-                <h1 className="text-2xl font-bold">Welcome back</h1>
+                <h1 className="text-2xl font-bold">Welcome!</h1>
                 <p className="text-balance text-muted-foreground">
                   Login to your Acme Inc account
                 </p>
@@ -104,7 +104,7 @@ export function LoginForm({
           </form>
           <div className="relative hidden bg-muted md:block">
             <img
-              src="/placeholder.svg"
+              src="../public/images/romanTemple.svg"
               alt="Image"
               className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
             />

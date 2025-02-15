@@ -6,6 +6,7 @@ import {
   GalleryVerticalEnd,
   Settings,
   Share2,
+  Wallet,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -61,6 +62,21 @@ const data = {
         },
         {
           title: "Settings",
+          url: "#",
+        },
+      ],
+    },
+    {
+      title: "Financials",
+      url: "#",
+      icon: Wallet,
+      items: [
+        {
+          title: "Invoices",
+          url: "#",
+        },
+        {
+          title: "Expenses",
           url: "#",
         },
       ],

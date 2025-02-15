@@ -55,7 +55,7 @@ const CalendarDays: React.FC<CalendarDaysProps> = ({ currentDay, onSelect, event
               )}
             </div>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="w-4/5 rounded-md">
             <DialogHeader>
               {/** TODO: Translate **/}
               <DialogTitle>Schedule for {formattedDate}</DialogTitle>
