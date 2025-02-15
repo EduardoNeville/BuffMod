@@ -29,7 +29,9 @@ const CalendarEvent: React.FC<CalendarEventProps> = ({ index, dayEvent }) => {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Are you absolutely sure?</DialogTitle>
+          <DialogTitle>
+            {dayEvent.icon} &nbsp; {dayEvent.name}
+          </DialogTitle>
           <DialogDescription>
             This action cannot be undone. This will permanently delete your account
             and remove your data from our servers.

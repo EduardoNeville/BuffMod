@@ -1,7 +1,11 @@
 import Calendar from "@/components/ui/calendar"
+import SocialMediaHeader from "./social-media-header"
 
 export default function SocialMediaMain() {
   return (
-    <Calendar />
+    <div>
+      <SocialMediaHeader />
+      <Calendar />
+    </div>
   )
 }
