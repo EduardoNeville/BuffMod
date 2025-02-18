@@ -1,5 +1,3 @@
-"use client"
-
 import { ChevronRight, Plus, type LucideIcon } from "lucide-react"
 
 import {
@@ -20,8 +18,10 @@ import {
 import { Button } from "./ui/button"
 
 export function NavMain({
+  onNavigate,
   items,
 }: {
+  onNavigate(page: string): void,
   items: {
     title: string
     url: string
@@ -33,6 +33,10 @@ export function NavMain({
     }[]
   }[]
 }) {
+
+  const handleNavigation = (page: string) => {
+    onNavigate(page); // Notify `DashboardPage`
+  };
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Modules</SidebarGroupLabel>
@@ -56,10 +60,11 @@ export function NavMain({
                 <SidebarMenuSub>
                   {item.items?.map((subItem) => (
                     <SidebarMenuSubItem key={subItem.title}>
-                      <SidebarMenuSubButton asChild>
-                        <a href={subItem.url}>
-                          <span>{subItem.title}</span>
-                        </a>
+                      <SidebarMenuSubButton 
+                        onClick={() => handleNavigation(subItem.url)}
+                        asChild
+                      >
+                        <span>{subItem.title}</span>
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
                   ))}

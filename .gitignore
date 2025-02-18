@@ -23,6 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
+# Secrets
+.env
+
 legatio.md
 
 misc/

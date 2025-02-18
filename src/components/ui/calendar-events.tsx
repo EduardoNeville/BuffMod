@@ -28,7 +28,7 @@ const CalendarEvents: React.FC = () => {
   ];
 
   return (
-    <div className="w-full mx-auto bg-[var(--primary-color)] text-[var(--text-color)] rounded-lg p-5 shadow-lg mt-10">
+    <div className="w-full mx-auto bg-[var(--primary-color)] text-[var(--text-color)] rounded-lg p-5 shadow-lg">
       <div className="flex justify-between items-center mb-4">
         <Button 
           variant="outline"

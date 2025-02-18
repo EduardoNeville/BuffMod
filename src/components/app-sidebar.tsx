@@ -6,6 +6,7 @@ import {
   GalleryVerticalEnd,
   Settings,
   Share2,
+  Shield,
   Wallet,
 } from "lucide-react"
 
@@ -19,7 +20,7 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { ModeToggle } from "./mode-toggle"
+import { ModeToggle } from "@/components/mode-toggle"
 
 // This is sample data.
 const data = {
@@ -48,13 +49,13 @@ const data = {
   navMain: [
     {
       title: "Clients",
-      url: "#",
+      url: "clients",
       icon: BookUser,
       isActive: true,
       items: [
         {
           title: "History",
-          url: "#",
+          url: "clients",
         },
         {
           title: "Starred",
@@ -68,12 +69,12 @@ const data = {
     },
     {
       title: "Financials",
-      url: "#",
+      url: "financials",
       icon: Wallet,
       items: [
         {
           title: "Invoices",
-          url: "#",
+          url: "financials",
         },
         {
           title: "Expenses",
@@ -83,12 +84,12 @@ const data = {
     },
     {
       title: "Social Media",
-      url: "#",
+      url: "social-media",
       icon: Share2,
       items: [
         {
           title: "Publish",
-          url: "#",
+          url: "social-media",
         },
         {
           title: "Analytics",
@@ -97,13 +98,36 @@ const data = {
       ],
     },
     {
+      title: "Permissions",
+      url: "permissions",
+      icon: Shield,
+      items: [
+        {
+          title: "General",
+          url: "permissions",
+        },
+        {
+          title: "Team",
+          url: "#",
+        },
+        {
+          title: "Billing",
+          url: "#",
+        },
+        {
+          title: "Limits",
+          url: "#",
+        },
+      ],
+    },
+    {
       title: "Settings",
-      url: "#",
+      url: "settings",
       icon: Settings,
       items: [
         {
           title: "General",
-          url: "#",
+          url: "settings",
         },
         {
           title: "Team",
@@ -122,14 +146,19 @@ const data = {
   ],
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({
+  onNavigate,
+  ...props
+}: {
+  onNavigate: (page: string) => void;
+} & React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <TeamSwitcher teams={data.teams} />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain onNavigate={onNavigate} items={data.navMain} />
       </SidebarContent>
       <SidebarFooter>
         <ModeToggle />

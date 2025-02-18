@@ -16,7 +16,7 @@ export default function SocialMediaHeader() {
   // Example channel list state, can be updated dynamically
   // TODO: Translate
   // TODO: Backend
-  const [channels, setChannels] = useState(["General", "Marketing", "Development"])
+  const [channels, setChannels] = useState(["Instagram", "Facebook", "X", "TikTok"])
   const [isOpen, setIsOpen] = useState(false)
 
   const handleAddChannel = () => {
