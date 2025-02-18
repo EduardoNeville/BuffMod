@@ -45,7 +45,7 @@ export default function SignInPage() {
       // Success toast
       toast({
         title: "Success!",
-        description: "Organization and account created successfully.",
+        description: "You are now logged in",
       });
 
       localStorage.setItem("authToken", `${values.email}`)
