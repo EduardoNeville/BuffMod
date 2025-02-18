@@ -1,4 +1,6 @@
 pub mod supabase;
+pub mod secure_db_access;
+pub mod storage;
 
 use supabase::Supabase;
 

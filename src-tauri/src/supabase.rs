@@ -46,11 +46,15 @@ impl Supabase {
         let user_data = res.json::<serde_json::Value>().await
             .map_err(|e| format!("Error parsing sign-up response: {}", e))?;
 
+        println!("User_data: {:?}", &user_data);
+
         if let Some(user_id) = user_data["id"].as_str() {
             let org_id = self.create_organization(user_id, org_name).await?;
             
             self.create_user_organization(user_id, &org_id, "admin", user_name).await?;
             self.grant_permissions(user_id, &org_id, true).await?;
+
+            self.sign_in(email, password).await?;
 
             Ok(())
         } else {
@@ -247,6 +251,8 @@ impl Supabase {
 
         let user_data = res.json::<serde_json::Value>().await
             .map_err(|e| format!("Error parsing sign-in response: {}", e))?;
+
+        println!("User_data: {:?}", &user_data);
 
         if let Some(user_id) = user_data["user"]["id"].as_str() {
             let tools = self.get_user_tools(user_id).await?;
