@@ -96,7 +96,7 @@ impl EncKey {
 
     /// Monitors token expiry and auto-logs out when the session expires
     async fn monitor_token_expiry(&self, enc_key: Arc<Mutex<Option<Vec<u8>>>>) -> Result<(), SecureDbError> {
-        if let Some(expiry) = Self::extract_token_expiry(&self.access_token)? {
+        if let Some(expiry) = &self.extract_token_expiry()? {
             let now = Utc::now().timestamp();
             let time_left = expiry - now - SESSION_EXPIRY_BUFFER;
 
@@ -113,14 +113,16 @@ impl EncKey {
     }
 
     /// Extracts expiration timestamp from the JWT
-    fn extract_token_expiry(access_token: &str) -> Result<Option<i64>, SecureDbError> {
-        let token_data = decode::<serde_json::Value>(
-            access_token,
-            &DecodingKey::from_secret(b"secret"), // Dummy key since we only decode
-            &Validation::new(Algorithm::HS256),
-        ).map_err(|_| SecureDbError::TokenFormatError)?;
+    fn extract_token_expiry(&self) -> Result<Option<i64>, SecureDbError> {
+        let token_parts: Vec<&str> = self.access_token.split('.').collect();
+        if token_parts.len() != 3 {
+            return Err(SecureDbError::InvalidJwtFormat);
+        }
 
-        Ok(token_data.claims["exp"].as_i64())
+        let payload = URL_SAFE_NO_PAD.decode(token_parts[1])?;
+        let payload_json: Value = serde_json::from_slice(&payload)?;
+
+        Ok(payload_json["exp"].as_i64())
     }
 
     /// Auto logout and memory cleanup
