@@ -1,7 +1,6 @@
 use rusqlite::Connection;
 use tauri::api::path::config_dir;
 use std::fs;
-use std::path::Path;
 use std::path::PathBuf;
 use thiserror::Error; 
 use crate::secure_db_access::{EncKey, SecureDbError};
@@ -24,7 +23,7 @@ pub enum StorageError {
 
 /// Struct for handling secure database storage
 pub struct SecureStorage {
-    conn: Option<Connection>,
+    pub conn: Option<Connection>,
 }
 
 impl SecureStorage {
@@ -52,7 +51,9 @@ impl SecureStorage {
 
         let conn = if let Some(enc_key) = enc_key {
             let derived_key = enc_key.derive_encryption_key()?;
-            Some(Self::open_encrypted_db(&db_path, &derived_key)?)
+            let db_conn = Self::open_encrypted_db(&db_path, &derived_key)?;
+            Self::initialize_tables(&db_conn)?;
+            Some(db_conn)
         } else {
             None
         };
@@ -74,6 +75,78 @@ impl SecureStorage {
             .map_err(|_| StorageError::EncryptionError)?;
 
         Ok(conn)
+    }
+
+    fn initialize_tables(conn: &Connection) -> Result<(), StorageError> {
+        conn.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS clients (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                phone TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                start_date TIMESTAMP NOT NULL,
+                end_date TIMESTAMP NOT NULL,
+                client_id INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS invoices (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_id INTEGER,
+                amount REAL NOT NULL,
+                due_date TIMESTAMP NOT NULL,
+                status TEXT CHECK (status IN ('Paid', 'Pending', 'Overdue')) NOT NULL DEFAULT 'Pending',
+                event_id INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL,
+                FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS expenses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                amount REAL NOT NULL,
+                category TEXT NOT NULL,
+                date TIMESTAMP NOT NULL,
+                event_id INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS social_media_posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                platform TEXT NOT NULL,
+                content TEXT NOT NULL,
+                schedule_time TIMESTAMP NOT NULL,
+                event_id INTEGER,
+                client_id INTEGER,
+                status TEXT CHECK (status IN ('Scheduled', 'Posted')) NOT NULL DEFAULT 'Scheduled',
+                FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE SET NULL,
+                FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS permissions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                role TEXT CHECK (role IN ('admin', 'editor', 'viewer')) NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS settings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                key TEXT UNIQUE NOT NULL,
+                value TEXT
+            );
+            "
+        )?;
+        println!("✅ Tables initialized successfully.");
+        Ok(())
     }
 
     /// Lock the database by clearing the connection

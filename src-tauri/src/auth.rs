@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::OnceCell;
 use thiserror::Error;
 
-static SECURE_STORAGE: OnceCell<Arc<Mutex<Option<SecureStorage>>>> = OnceCell::const_new();
+pub static SECURE_STORAGE: OnceCell<Arc<Mutex<Option<SecureStorage>>>> = OnceCell::const_new();
 
 /// Define a custom AuthError enum for improved handling
 #[derive(Debug, Error)]

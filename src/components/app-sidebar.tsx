@@ -54,7 +54,7 @@ const data = {
       isActive: true,
       items: [
         {
-          title: "History",
+          title: "List",
           url: "clients",
         },
         {
@@ -103,20 +103,12 @@ const data = {
       icon: Shield,
       items: [
         {
-          title: "General",
-          url: "permissions",
-        },
-        {
           title: "Team",
           url: "#",
         },
         {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
-          url: "#",
+          title: "Manage",
+          url: "permissions",
         },
       ],
     },
@@ -128,10 +120,6 @@ const data = {
         {
           title: "General",
           url: "settings",
-        },
-        {
-          title: "Team",
-          url: "#",
         },
         {
           title: "Billing",
