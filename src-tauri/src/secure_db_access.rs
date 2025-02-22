@@ -1,4 +1,3 @@
-use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use pbkdf2::pbkdf2_hmac;
 use serde_json::Value;

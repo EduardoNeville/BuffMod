@@ -44,7 +44,7 @@ impl SecureStorage {
 
         // Ensure the config directory exists
         if !db_path.exists() {
-            fs::create_dir_all(&db_path).map_err(|_| StorageError::InvalidDbPath)?;
+            fs::create_dir_all(&db_path.join("buffmod")).map_err(|_| StorageError::InvalidDbPath)?;
         }
 
         db_path.push("buffmod.db");

@@ -73,9 +73,10 @@ export function NavMain({
             </SidebarMenuItem>
           </Collapsible>
         ))}
-        <Button className="bg-transparent" variant="secondary">
-          <Plus /> Add Module
-        </Button>
+        <SidebarMenuButton>
+          <Plus /> 
+          <span> Add Module </span>
+        </SidebarMenuButton>
       </SidebarMenu>
     </SidebarGroup>
   )
