@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { invoke } from "@tauri-apps/api";
+import { invoke } from "@tauri-apps/api/core";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";

@@ -1,5 +1,6 @@
 use dotenv::dotenv;
 use reqwest::{Client, Error as ReqwestError, Response};
+use serde::Serialize;
 use serde_json::{json, Value};
 use std::env::var;
 use thiserror::Error;
@@ -21,7 +22,17 @@ pub enum SupabaseError {
     EnvVarMissing(String),
 }
 
+impl Serialize for SupabaseError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        serializer.serialize_str(self.to_string().as_str())
+    }
+}
+
 /// Structure for Supabase API interactions
+#[derive(Debug)]
 pub struct Supabase {
     client: Client,
     supabase_url: String,

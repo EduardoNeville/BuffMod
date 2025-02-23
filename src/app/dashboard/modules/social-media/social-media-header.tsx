@@ -10,7 +10,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Search, Plus, ChevronDown, ChevronUp } from "lucide-react"
 import SocialMediaNewPost from "@/app/dashboard/modules/social-media/social-media-new-post"
-import { invoke } from "@tauri-apps/api"
+import { invoke } from "@tauri-apps/api/core"
 
 export default function SocialMediaHeader() {
   // Example channel list state, can be updated dynamically

@@ -1,6 +1,6 @@
 import "@/input.css";
-import { Navigation } from "./Navigation";
-import { ThemeProvider } from "./components/theme-provider";
+import { Navigation } from "@/Navigation";
+import { ThemeProvider } from "@/components/theme-provider";
 
 function App() {
   return (

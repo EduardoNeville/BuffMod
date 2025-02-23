@@ -1,4 +1,5 @@
-import { invoke } from "@tauri-apps/api";
+// When using the Tauri API:
+import { invoke } from '@tauri-apps/api/core';
 
 export async function initialSignUp(email: string, password: string, orgName: string, userName: string) {
     try {

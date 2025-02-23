@@ -6,12 +6,11 @@ pub mod secure_db_access;
 
 use auth::{sign_in, initial_sign_up};
 use handlers::{create_client, list_clients};
-use storage::new_db;
-use tauri::{AppHandle, Manager};
+use tauri::Manager;
 use tauri_plugin_stronghold::stronghold::Stronghold;
 use std::sync::Mutex;
 
-struct AppState {
+pub struct AppState {
     stronghold: Mutex<Option<Stronghold>>,
     db_key: Mutex<Option<String>>,
 }
@@ -20,15 +19,9 @@ struct AppState {
 #[tokio::main]
 async fn main() {
     tauri::Builder::default()
-        .setup(|app| {
-            let salt_path = app
-                .path()
-                .app_local_data_dir()
-                .expect("could not resolve app local data path")
-                .join("salt.txt");
-            app.handle().plugin(tauri_plugin_stronghold::Builder::with_argon2(&salt_path).build())?;
-
-            Ok(())
+        .manage(AppState {
+            stronghold: Mutex::new(None),
+            db_key: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
             initial_sign_up,

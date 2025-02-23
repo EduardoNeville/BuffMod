@@ -1,5 +1,5 @@
 use rusqlite::Connection;
-use tauri::path::PathResolver;
+use serde::Serialize;
 use tauri::{AppHandle, Manager};
 use std::fs;
 use std::path::PathBuf;
@@ -19,6 +19,15 @@ pub enum StorageError {
     #[error("Encryption error")]
     EncryptionError,
 
+}
+
+impl Serialize for StorageError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        serializer.serialize_str(self.to_string().as_str())
+    }
 }
 
 fn get_database_path(app_handle: &AppHandle) -> Result<PathBuf, StorageError> {
@@ -57,7 +66,10 @@ pub fn new_db(state: tauri::State<AppState>, app_handle: &AppHandle) -> Result<C
 pub fn open_encrypted_db(app_handle: &AppHandle, encryption_key: &str) -> Result<Connection, StorageError> {
 
     let db_path = get_database_path(app_handle)?;
-    let conn = Connection::open(db_path)?;
+    let conn = Connection::open(db_path)
+        .map_err(|e| {
+            StorageError::DatabaseError(e)
+        })?;
     
     conn.execute(&format!("PRAGMA key = '{}'", encryption_key), [])
         .map_err(|_| StorageError::EncryptionError)?;
