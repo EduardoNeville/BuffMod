@@ -1,5 +1,5 @@
 use rusqlite::Connection;
-use tauri::api::path::config_dir;
+use tauri::path::PathResolver;
 use std::fs;
 use std::path::PathBuf;
 use thiserror::Error; 
@@ -27,6 +27,7 @@ pub struct SecureStorage {
 }
 
 impl SecureStorage {
+
     /// Initialize the storage with an optional encryption key
     /// 
     /// # Parameters:
@@ -37,10 +38,8 @@ impl SecureStorage {
     /// - `Ok(Self)`: If initialization was successful.
     /// - `Err(StorageError)`: If an error occurs.
     pub fn new(enc_key: Option<&EncKey>) -> Result<Self, StorageError> {
-        let mut db_path = config_dir().unwrap_or_else(|| {
-            let fallback_path = dirs::home_dir().map(|p| p.join(".buffmod"));
-            fallback_path.unwrap_or_else(|| PathBuf::from("./.buffmod"))
-        });
+        
+        let mut db_path = PathBuf::new();
 
         // Ensure the config directory exists
         if !db_path.exists() {
