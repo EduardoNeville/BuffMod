@@ -5,8 +5,8 @@ use crate::supabase::{Supabase, SupabaseError};
 use serde::Serialize;
 use serde_json::Value;
 use std::sync::{Arc, Mutex};
-use tokio::sync::OnceCell;
 use thiserror::Error;
+use tokio::sync::OnceCell;
 
 pub static SECURE_STORAGE: OnceCell<Arc<Mutex<Option<SecureStorage>>>> = OnceCell::const_new();
 
@@ -51,7 +51,7 @@ fn extract_and_initialize_storage(user_data: Value) -> Result<(), AuthError> {
     let access_token = user_data["access_token"]
         .as_str()
         .ok_or(AuthError::InvalidUserData)?;
-    
+
     let refresh_token = user_data["refresh_token"]
         .as_str()
         .ok_or(AuthError::InvalidUserData)?;
@@ -88,7 +88,9 @@ pub async fn initial_sign_up(
     user_name: String,
 ) -> Result<(), AuthError> {
     let supabase = Supabase::new()?;
-    let user_data = supabase.initial_sign_up(&email, &password, &org_name, &user_name).await?;
+    let user_data = supabase
+        .initial_sign_up(&email, &password, &org_name, &user_name)
+        .await?;
 
     tokio::task::spawn_blocking(move || extract_and_initialize_storage(user_data))
         .await

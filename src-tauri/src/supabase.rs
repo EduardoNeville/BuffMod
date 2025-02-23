@@ -1,7 +1,7 @@
+use dotenv::dotenv;
 use reqwest::{Client, Error as ReqwestError, Response};
 use serde_json::{json, Value};
 use std::env::var;
-use dotenv::dotenv;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -33,8 +33,10 @@ impl Supabase {
     pub fn new() -> Result<Self, SupabaseError> {
         dotenv().ok(); // Load environment variables
 
-        let supabase_url = var("SUPABASE_URL").map_err(|_| SupabaseError::EnvVarMissing("SUPABASE_URL".into()))?;
-        let supabase_anon_key = var("SUPABASE_ANON_KEY").map_err(|_| SupabaseError::EnvVarMissing("SUPABASE_ANON_KEY".into()))?;
+        let supabase_url =
+            var("SUPABASE_URL").map_err(|_| SupabaseError::EnvVarMissing("SUPABASE_URL".into()))?;
+        let supabase_anon_key = var("SUPABASE_ANON_KEY")
+            .map_err(|_| SupabaseError::EnvVarMissing("SUPABASE_ANON_KEY".into()))?;
 
         Ok(Supabase {
             client: Client::new(),
@@ -46,16 +48,29 @@ impl Supabase {
     /// Handles API response and extracts JSON
     async fn handle_response(response: Response) -> Result<Value, SupabaseError> {
         if response.status().is_success() {
-            response.json::<Value>().await.map_err(SupabaseError::NetworkError)
+            response
+                .json::<Value>()
+                .await
+                .map_err(SupabaseError::NetworkError)
         } else {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             Err(SupabaseError::SupabaseError(error_text))
         }
     }
 
     /// Initial sign-up process where a user creates an organization
-    pub async fn initial_sign_up(&self, email: &str, password: &str, org_name: &str, user_name: &str) -> Result<Value, SupabaseError> {
-        let response = self.client
+    pub async fn initial_sign_up(
+        &self,
+        email: &str,
+        password: &str,
+        org_name: &str,
+        user_name: &str,
+    ) -> Result<Value, SupabaseError> {
+        let response = self
+            .client
             .post(format!("{}/auth/v1/signup", &self.supabase_url))
             .header("apikey", &self.supabase_anon_key)
             .json(&json!({
@@ -66,13 +81,16 @@ impl Supabase {
             .await?;
 
         let user_data = Supabase::handle_response(response).await?; // Get user data
-        let user_id = user_data["id"].as_str().ok_or(SupabaseError::ResponseFormatError)?;
+        let user_id = user_data["id"]
+            .as_str()
+            .ok_or(SupabaseError::ResponseFormatError)?;
 
         // Create organization
         let org_id = self.create_organization(user_id, org_name).await?;
 
         // Create user organization role
-        self.create_user_organization(user_id, &org_id, "admin", user_name).await?;
+        self.create_user_organization(user_id, &org_id, "admin", user_name)
+            .await?;
 
         // Grant permissions
         self.grant_permissions(user_id, &org_id, true).await?;
@@ -82,8 +100,13 @@ impl Supabase {
     }
 
     /// Create a new organization and return its ID
-    async fn create_organization(&self, user_id: &str, name: &str) -> Result<String, SupabaseError> {
-        let response = self.client
+    async fn create_organization(
+        &self,
+        user_id: &str,
+        name: &str,
+    ) -> Result<String, SupabaseError> {
+        let response = self
+            .client
             .post(format!("{}/rest/v1/organizations", self.supabase_url))
             .header("apikey", &self.supabase_anon_key)
             .header("Content-Type", "application/json")
@@ -95,12 +118,20 @@ impl Supabase {
             .await?;
 
         let org_data = Supabase::handle_response(response).await?;
-        org_data["id"].as_str().map(String::from).ok_or(SupabaseError::ResponseFormatError)
+        org_data["id"]
+            .as_str()
+            .map(String::from)
+            .ok_or(SupabaseError::ResponseFormatError)
     }
 
-    pub async fn create_invite(&self, organization_id: &str, email: &str) -> Result<String, String> {
+    pub async fn create_invite(
+        &self,
+        organization_id: &str,
+        email: &str,
+    ) -> Result<String, String> {
         let invite_code = Uuid::new_v4().to_string();
-        let res = self.client
+        let res = self
+            .client
             .post(format!("{}/rest/v1/invites", &self.supabase_url))
             .header("apikey", &self.supabase_anon_key)
             .json(&json!({
@@ -113,7 +144,10 @@ impl Supabase {
             .map_err(|e| format!("Network error creating invite: {}", e))?;
 
         if !res.status().is_success() {
-            let error_text = res.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = res
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             Err(format!("Invite creation failed: {}", error_text))
         } else {
             Ok(invite_code)
@@ -121,8 +155,15 @@ impl Supabase {
     }
 
     /// Assign the user to the organization
-    async fn create_user_organization(&self, user_id: &str, org_id: &str, role: &str, user_name: &str) -> Result<(), SupabaseError> {
-        let response = self.client
+    async fn create_user_organization(
+        &self,
+        user_id: &str,
+        org_id: &str,
+        role: &str,
+        user_name: &str,
+    ) -> Result<(), SupabaseError> {
+        let response = self
+            .client
             .post(format!("{}/rest/v1/user_organizations", self.supabase_url))
             .header("apikey", &self.supabase_anon_key)
             .json(&json!({
@@ -137,7 +178,13 @@ impl Supabase {
         Supabase::handle_response(response).await.map(|_| ())
     }
 
-    pub async fn invite_sign_up(&self, email: &str, password: &str, invite_code: &str, user_name: &str) -> Result<(), String> {
+    pub async fn invite_sign_up(
+        &self,
+        email: &str,
+        password: &str,
+        invite_code: &str,
+        user_name: &str,
+    ) -> Result<(), String> {
         //let res = self.client
         //    .get(format!("{}/rest/v1/invites?invite_code=eq.{}", &self.supabase_url, invite_code))
         //    .header("apikey", &self.supabase_anon_key)
@@ -152,7 +199,7 @@ impl Supabase {
         //let invites = res.json::<Vec<serde_json::Value>>().await.map_err(|e| format!("Error parsing invite checking response: {}", e))?;
         //if let Some(invite) = invites.first() {
         //    if let Some(org_id) = invite["organization_id"].as_str() {
-        //        
+        //
         //        let user_res = self.client
         //            .post(format!("{}/auth/v1/signup", &self.supabase_url))
         //            .header("apikey", &self.supabase_anon_key)
@@ -181,20 +228,29 @@ impl Supabase {
     }
 
     /// Grant permissions to a user for specific tools
-    async fn grant_permissions(&self, user_id: &str, org_id: &str, is_admin: bool) -> Result<(), SupabaseError> {
+    async fn grant_permissions(
+        &self,
+        user_id: &str,
+        org_id: &str,
+        is_admin: bool,
+    ) -> Result<(), SupabaseError> {
         // TODO: Query permissions and extract correct permission setup assigned by admin when
         // inviting
         let tools = ["clients", "financials", "social-media", "permissions"];
-        let permissions: Vec<Value> = tools.iter().map(|&tool| {
-            json!({
-                "user_id": user_id,
-                "organization_id": org_id,
-                "tool_name": tool,
-                "can_access": if tool == "permissions" { is_admin } else { true }
+        let permissions: Vec<Value> = tools
+            .iter()
+            .map(|&tool| {
+                json!({
+                    "user_id": user_id,
+                    "organization_id": org_id,
+                    "tool_name": tool,
+                    "can_access": if tool == "permissions" { is_admin } else { true }
+                })
             })
-        }).collect();
+            .collect();
 
-        let response = self.client
+        let response = self
+            .client
             .post(format!("{}/rest/v1/permissions", self.supabase_url))
             .header("apikey", &self.supabase_anon_key)
             .json(&permissions)
@@ -206,8 +262,12 @@ impl Supabase {
 
     /// Sign in and return authentication details (tokens, user_data)
     pub async fn sign_in(&self, email: &str, password: &str) -> Result<Value, SupabaseError> {
-        let response = self.client
-            .post(format!("{}/auth/v1/token?grant_type=password", self.supabase_url))
+        let response = self
+            .client
+            .post(format!(
+                "{}/auth/v1/token?grant_type=password",
+                self.supabase_url
+            ))
             .header("apikey", &self.supabase_anon_key)
             .json(&json!({
                 "email": email,
@@ -220,7 +280,8 @@ impl Supabase {
     }
 
     async fn get_user_tools(&self, user_id: &str) -> Result<Vec<String>, String> {
-        let res = self.client
+        let res = self
+            .client
             .get(format!(
                 "{}/rest/v1/permissions?user_id=eq.{}&can_access=eq.true&select=tool_name",
                 &self.supabase_url, user_id
@@ -233,14 +294,19 @@ impl Supabase {
         if !res.status().is_success() {
             return Err(format!(
                 "Failed to retrieve user tools: {}",
-                res.text().await.unwrap_or_else(|_| "Unknown error".to_string())
+                res.text()
+                    .await
+                    .unwrap_or_else(|_| "Unknown error".to_string())
             ));
         }
 
-        let permissions = res.json::<Vec<serde_json::Value>>().await
+        let permissions = res
+            .json::<Vec<serde_json::Value>>()
+            .await
             .map_err(|e| format!("Error parsing tools response: {}", e))?;
 
-        let tools = permissions.iter()
+        let tools = permissions
+            .iter()
             .filter_map(|perm| perm["tool_name"].as_str().map(String::from))
             .collect();
 

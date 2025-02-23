@@ -1,14 +1,14 @@
-pub mod supabase;
-pub mod secure_db_access;
-pub mod storage;
 pub mod auth;
 pub mod handlers;
+pub mod secure_db_access;
+pub mod storage;
+pub mod supabase;
 
 use std::sync::{Arc, Mutex};
 
-use auth::{sign_in, initial_sign_up};
-use storage::SecureStorage;
+use auth::{initial_sign_up, sign_in};
 use handlers::{create_client, list_clients};
+use storage::SecureStorage;
 use tokio::sync::OnceCell;
 
 /// Global storage reference, accessible only after login
@@ -18,6 +18,7 @@ pub static SECURE_STORAGE: OnceCell<Arc<Mutex<Option<SecureStorage>>>> = OnceCel
 #[tokio::main]
 async fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_stronghold::Builder::new(|pass| todo!()).build())
         .invoke_handler(tauri::generate_handler![
             initial_sign_up,
             sign_in,

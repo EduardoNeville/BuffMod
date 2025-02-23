@@ -1,7 +1,7 @@
-use std::sync::MutexGuard;
+use crate::{auth::SECURE_STORAGE, storage::SecureStorage};
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
-use crate::{auth::SECURE_STORAGE, storage::SecureStorage};
+use std::sync::MutexGuard;
 use thiserror::Error;
 
 /// Define a custom HandlerError enum for improved error handling
@@ -33,9 +33,11 @@ impl serde::Serialize for HandlerError {
 /// Validate if the database is unlocked and return a mutable reference
 fn get_secure_storage() -> Result<MutexGuard<'static, Option<SecureStorage>>, HandlerError> {
     let storage_mutex = SECURE_STORAGE.get().ok_or(HandlerError::DatabaseLocked)?;
-    
-    let storage_guard = storage_mutex.lock().map_err(|_| HandlerError::DatabaseLockError)?;
-    
+
+    let storage_guard = storage_mutex
+        .lock()
+        .map_err(|_| HandlerError::DatabaseLockError)?;
+
     if storage_guard.is_none() {
         return Err(HandlerError::DatabaseConnectionNotFound);
     }
@@ -56,12 +58,14 @@ pub struct Client {
 #[tauri::command]
 pub fn create_client(client: Client) -> Result<(), HandlerError> {
     let mut storage_guard = get_secure_storage()?;
-    let storage = storage_guard.as_mut().ok_or(HandlerError::DatabaseConnectionNotFound)?;
+    let storage = storage_guard
+        .as_mut()
+        .ok_or(HandlerError::DatabaseConnectionNotFound)?;
 
     if let Some(conn) = &storage.conn {
         conn.execute(
             "INSERT INTO clients (name, email, phone) VALUES (?1, ?2, ?3)",
-            params![client.name, client.email, client.phone]
+            params![client.name, client.email, client.phone],
         )?;
 
         Ok(())
@@ -74,11 +78,13 @@ pub fn create_client(client: Client) -> Result<(), HandlerError> {
 #[tauri::command]
 pub fn list_clients() -> Result<Vec<Client>, HandlerError> {
     let storage_guard = get_secure_storage()?;
-    let storage = storage_guard.as_ref().ok_or(HandlerError::DatabaseConnectionNotFound)?;
+    let storage = storage_guard
+        .as_ref()
+        .ok_or(HandlerError::DatabaseConnectionNotFound)?;
 
     if let Some(conn) = &storage.conn {
         let mut stmt = conn.prepare("SELECT id, name, email, phone FROM clients")?;
-        
+
         let clients_iter = stmt.query_map([], |row| {
             Ok(Client {
                 id: row.get(0)?,
@@ -100,7 +106,7 @@ pub fn list_clients() -> Result<Vec<Client>, HandlerError> {
 pub struct Event {
     pub id: Option<i32>,
     pub title: String,
-    pub start_date: String,  
+    pub start_date: String,
     pub end_date: String,
     pub client_id: Option<i32>,
 }
@@ -109,12 +115,19 @@ pub struct Event {
 #[tauri::command]
 pub fn create_event(event: Event) -> Result<(), HandlerError> {
     let storage_guard = get_secure_storage()?;
-    let storage = storage_guard.as_ref().ok_or(HandlerError::DatabaseConnectionNotFound)?;
+    let storage = storage_guard
+        .as_ref()
+        .ok_or(HandlerError::DatabaseConnectionNotFound)?;
 
     if let Some(conn) = &storage.conn {
         conn.execute(
             "INSERT INTO events (title, start_date, end_date, client_id) VALUES (?1, ?2, ?3, ?4)",
-            params![event.title, event.start_date, event.end_date, event.client_id]
+            params![
+                event.title,
+                event.start_date,
+                event.end_date,
+                event.client_id
+            ],
         )?;
 
         Ok(())
@@ -127,11 +140,14 @@ pub fn create_event(event: Event) -> Result<(), HandlerError> {
 #[tauri::command]
 pub fn list_events() -> Result<Vec<Event>, HandlerError> {
     let storage_guard = get_secure_storage()?;
-    let storage = storage_guard.as_ref().ok_or(HandlerError::DatabaseConnectionNotFound)?;
+    let storage = storage_guard
+        .as_ref()
+        .ok_or(HandlerError::DatabaseConnectionNotFound)?;
 
     if let Some(conn) = &storage.conn {
-        let mut stmt = conn.prepare("SELECT id, title, start_date, end_date, client_id FROM events")?;
-        
+        let mut stmt =
+            conn.prepare("SELECT id, title, start_date, end_date, client_id FROM events")?;
+
         let events_iter = stmt.query_map([], |row| {
             Ok(Event {
                 id: row.get(0)?,
@@ -156,7 +172,7 @@ pub struct Invoice {
     pub client_id: i32,
     pub amount: f64,
     pub due_date: String,
-    pub status: String,  
+    pub status: String,
     pub event_id: Option<i32>,
 }
 
@@ -164,7 +180,9 @@ pub struct Invoice {
 #[tauri::command]
 pub fn create_invoice(invoice: Invoice) -> Result<(), HandlerError> {
     let mut storage_guard = get_secure_storage()?;
-    let storage = storage_guard.as_mut().ok_or(HandlerError::DatabaseConnectionNotFound)?;
+    let storage = storage_guard
+        .as_mut()
+        .ok_or(HandlerError::DatabaseConnectionNotFound)?;
 
     if let Some(conn) = &storage.conn {
         conn.execute(
@@ -187,14 +205,16 @@ pub struct SocialMediaPost {
     pub schedule_time: String,
     pub event_id: Option<i32>,
     pub client_id: Option<i32>,
-    pub status: String,  
+    pub status: String,
 }
 
 /// 📢 Publish social media post
 #[tauri::command]
 pub fn schedule_social_post(post: SocialMediaPost) -> Result<(), HandlerError> {
     let mut storage_guard = get_secure_storage()?;
-    let storage = storage_guard.as_mut().ok_or(HandlerError::DatabaseConnectionNotFound)?;
+    let storage = storage_guard
+        .as_mut()
+        .ok_or(HandlerError::DatabaseConnectionNotFound)?;
 
     if let Some(conn) = &storage.conn {
         conn.execute(

@@ -1,13 +1,13 @@
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use chrono::Utc;
 use pbkdf2::pbkdf2_hmac;
+use rand::RngCore;
 use serde_json::Value;
 use sha2::Sha256;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use thiserror::Error;
 use tokio::time::sleep;
-use rand::RngCore;
-use chrono::Utc;
 
 const ITERATIONS: u32 = 100_000;
 static SESSION_EXPIRY_BUFFER: i64 = 10; // Refresh buffer in seconds
@@ -94,7 +94,10 @@ impl EncKey {
     }
 
     /// Monitors token expiry and auto-logs out when the session expires
-    async fn monitor_token_expiry(&self, enc_key: Arc<Mutex<Option<Vec<u8>>>>) -> Result<(), SecureDbError> {
+    async fn monitor_token_expiry(
+        &self,
+        enc_key: Arc<Mutex<Option<Vec<u8>>>>,
+    ) -> Result<(), SecureDbError> {
         if let Some(expiry) = &self.extract_token_expiry()? {
             let now = Utc::now().timestamp();
             let time_left = expiry - now - SESSION_EXPIRY_BUFFER;
@@ -107,7 +110,7 @@ impl EncKey {
                 Self::auto_logout(enc_key).await;
             }
         }
-        
+
         Ok(())
     }
 
