@@ -38,6 +38,7 @@
     "date-fns": "^4.1.0",
     "framer-motion": "^12.4.3",
     "input-otp": "^1.4.2",
+    "js-sha256": "^0.11.0",
     "lucide-react": "^0.475.0",
     "postcss-cli": "^11.0.0",
     "react": "^18.3.1",

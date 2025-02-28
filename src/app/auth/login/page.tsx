@@ -39,16 +39,13 @@ export default function SignInPage() {
     setError(null);
 
     try {
-      const tools = await signIn(values.email, values.password);
-      console.log("User Tools: ", tools);
+      await signIn(values.email, values.password);
 
       // Success toast
       toast({
         title: "Success!",
         description: "You are now logged in",
       });
-
-      localStorage.setItem("authToken", `${values.email}`)
 
       // Redirect user after successful login
       navigate("/dashboard"); 

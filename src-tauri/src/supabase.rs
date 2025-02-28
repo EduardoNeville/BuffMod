@@ -3,14 +3,12 @@ use reqwest::{Client, Error as ReqwestError, Response};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::env::var;
-use thiserror::Error;
 use uuid::Uuid;
 
-/// Custom error type for Supabase interactions
-#[derive(Error, Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum SupabaseError {
-    #[error("Network request failed: {0}")]
-    NetworkError(#[from] ReqwestError),
+    #[error("Network error: {0}")]
+    NetworkError(#[from] reqwest::Error),
 
     #[error("Invalid response format")]
     ResponseFormatError,
@@ -20,6 +18,24 @@ pub enum SupabaseError {
 
     #[error("Environment variable missing: {0}")]
     EnvVarMissing(String),
+
+    #[error("Parsing error: {0}")]
+    ParsingError(String),
+
+    #[error("Invite code not found or invalid.")]
+    InvalidInviteCode,
+
+    #[error("Failed to create user in Supabase.")]
+    UserCreationFailed,
+
+    #[error("Failed to associate user with the organization.")]
+    OrganizationAssociationFailed,
+
+    #[error("Failed to grant permissions for the user.")]
+    PermissionGrantFailed,
+
+    #[error("Sign-in error: {0}")]
+    SignInFailed(String),
 }
 
 impl Serialize for SupabaseError {
@@ -135,14 +151,15 @@ impl Supabase {
             .ok_or(SupabaseError::ResponseFormatError)
     }
 
-    pub async fn create_invite(
+    pub async fn create_an_invite(
         &self,
         organization_id: &str,
         email: &str,
-    ) -> Result<String, String> {
+    ) -> Result<String, SupabaseError> {
         let invite_code = Uuid::new_v4().to_string();
-        let res = self
-            .client
+
+        // Step 1: Send request to create an invite
+        let res = self.client
             .post(format!("{}/rest/v1/invites", &self.supabase_url))
             .header("apikey", &self.supabase_anon_key)
             .json(&json!({
@@ -152,17 +169,21 @@ impl Supabase {
             }))
             .send()
             .await
-            .map_err(|e| format!("Network error creating invite: {}", e))?;
+            .map_err(SupabaseError::NetworkError)?;  
 
+        // Step 2: Handle response failures properly
         if !res.status().is_success() {
             let error_text = res
                 .text()
                 .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
-            Err(format!("Invite creation failed: {}", error_text))
-        } else {
-            Ok(invite_code)
+            return Err(SupabaseError::SupabaseError(format!(
+                "Invite creation failed: {}", error_text
+            )));
         }
+
+        // Step 3: Return the invite code upon success
+        Ok(invite_code)
     }
 
     /// Assign the user to the organization
@@ -195,47 +216,61 @@ impl Supabase {
         password: &str,
         invite_code: &str,
         user_name: &str,
-    ) -> Result<(), String> {
-        //let res = self.client
-        //    .get(format!("{}/rest/v1/invites?invite_code=eq.{}", &self.supabase_url, invite_code))
-        //    .header("apikey", &self.supabase_anon_key)
-        //    .send()
-        //    .await
-        //    .map_err(|e| format!("Network error checking invite: {}", e))?;
+    ) -> Result<Value, SupabaseError> {
+        // Step 1: Retrieve the invite from Supabase
+        let res = self.client
+            .get(format!("{}/rest/v1/invites?invite_code=eq.{}", &self.supabase_url, invite_code))
+            .header("apikey", &self.supabase_anon_key)
+            .send()
+            .await
+            .map_err(SupabaseError::NetworkError)?;
 
-        //if !res.status().is_success() {
-        //    return Err("Invalid invite code.".to_string());
-        //}
+        if !res.status().is_success() {
+            return Err(SupabaseError::InvalidInviteCode);
+        }
 
-        //let invites = res.json::<Vec<serde_json::Value>>().await.map_err(|e| format!("Error parsing invite checking response: {}", e))?;
-        //if let Some(invite) = invites.first() {
-        //    if let Some(org_id) = invite["organization_id"].as_str() {
-        //
-        //        let user_res = self.client
-        //            .post(format!("{}/auth/v1/signup", &self.supabase_url))
-        //            .header("apikey", &self.supabase_anon_key)
-        //            .json(&json!({
-        //                "email": email,
-        //                "password": password
-        //            }))
-        //            .send()
-        //            .await
-        //            .map_err(|e| format!("Network error during invite sign-up: {}", e))?;
+        let invites: Vec<Value> = res.json().await.map_err(|e| SupabaseError::ParsingError(e.to_string()))?;
+        let invite = invites.get(0).ok_or(SupabaseError::InvalidInviteCode)?;
+        
+        let org_id = invite["organization_id"]
+            .as_str()
+            .ok_or(SupabaseError::ParsingError("Missing organization_id in invite".to_string()))?;
 
-        //        if user_res.status().is_success() {
-        //            let user_data = user_res.json::<serde_json::Value>().await
-        //                .map_err(|e| format!("Error parsing invite sign-up response: {}", e))?;
+        // Step 2: Create a new user in Supabase
+        let user_res = self.client
+            .post(format!("{}/auth/v1/signup", &self.supabase_url))
+            .header("apikey", &self.supabase_anon_key)
+            .json(&json!({
+                "email": email,
+                "password": password
+            }))
+            .send()
+            .await
+            .map_err(SupabaseError::NetworkError)?;
 
-        //            if let Some(user_id) = user_data["id"].as_str() {
-        //                self.create_user_organization(user_id, org_id, "staff", user_name).await?;
-        //                self.grant_permissions(user_id, org_id, false).await?;
-        //                return Ok(());
-        //            }
-        //        }
-        //    }
-        //}
-        //Err("Failed to process invite sign-up.".to_string())
-        Ok(())
+        if !user_res.status().is_success() {
+            return Err(SupabaseError::UserCreationFailed);
+        }
+
+        let user_data: Value = user_res.json().await.map_err(|e| SupabaseError::ParsingError(e.to_string()))?;
+        let user_id = user_data["id"]
+            .as_str()
+            .ok_or(SupabaseError::ParsingError("Missing user ID in response".to_string()))?;
+
+        // Step 3: Associate the new user with the organization
+        self.create_user_organization(user_id, org_id, "staff", user_name)
+            .await
+            .map_err(|_| SupabaseError::OrganizationAssociationFailed)?;
+
+        // Step 4: Grant user permissions
+        self.grant_permissions(user_id, org_id, false)
+            .await
+            .map_err(|_| SupabaseError::PermissionGrantFailed)?;
+
+        // Step 5: Auto login user and return user data
+        self.sign_in(email, password)
+            .await
+            .map_err(|e| SupabaseError::SignInFailed(e.to_string()))
     }
 
     /// Grant permissions to a user for specific tools

@@ -3,7 +3,9 @@ use chrono::Utc;
 use pbkdf2::pbkdf2_hmac;
 use rand::RngCore;
 use serde_json::Value;
-use sha2::Sha256;
+use sha2::digest::consts::U32;
+use sha2::digest::generic_array::GenericArray;
+use sha2::{Digest, Sha256};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use thiserror::Error;
@@ -48,8 +50,8 @@ pub struct EncKey {
 }
 
 impl EncKey {
-    pub fn new(access_token: &str, refresh_token: &str) -> Result<Self, SecureDbError> {
-        let salt = Self::generate_salt()?;
+    pub fn new(access_token: &str, refresh_token: &str, user_id: &str) -> Result<Self, SecureDbError> {
+        let salt = Self::get_persistent_salt(user_id)?;  // Use the same salt for this user
         Ok(EncKey {
             access_token: access_token.to_owned(),
             refresh_token: refresh_token.to_owned(),
@@ -57,15 +59,24 @@ impl EncKey {
         })
     }
 
-    /// Derives an AES encryption key from `session_id + refresh_token`
-    pub fn derive_encryption_key(&self) -> Result<Vec<u8>, SecureDbError> {
-        let session_id = self.get_session_id()?;
+    /// ✅ Derives an AES encryption key using `user_id + refresh_token`
+    pub fn derive_encryption_key(&self, user_id: &str) -> Result<Vec<u8>, SecureDbError> {
         let mut key = [0u8; 32];
 
-        let derived_input = format!("{}{}", session_id, &self.refresh_token);
+        let derived_input = format!("{}{}", user_id, &self.refresh_token); // Stable input!
         pbkdf2_hmac::<Sha256>(derived_input.as_bytes(), &self.salt, ITERATIONS, &mut key);
 
-        Ok(key.to_vec())
+        Ok(key.to_vec()) // Always returns the same key for this user
+    }
+
+    /// 🔥 Get a Persistent Salt Based on User ID  
+    fn get_persistent_salt(user_id: &str) -> Result<Vec<u8>, SecureDbError> {
+        let mut salt = [0u8; 16]; 
+
+        let user_hash: GenericArray<u8, U32> = Sha256::digest(user_id.as_bytes());
+        salt.copy_from_slice(&user_hash[..16]); // Use part of the hash as salt  
+
+        Ok(salt.to_vec()) // Persistent!
     }
 
     /// Generate a new random salt
