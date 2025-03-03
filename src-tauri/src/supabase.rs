@@ -316,7 +316,7 @@ impl Supabase {
     }
 
     /// Sign in and return authentication details (tokens, user_data)
-    pub async fn sign_in(&self, email: &str, password: &str) -> Result<Value, SupabaseError> {
+    pub async fn sign_in(&self, email: &str, password: &str) -> Result<String, SupabaseError> {
         let response = self
             .client
             .post(format!(
@@ -331,7 +331,18 @@ impl Supabase {
             .send()
             .await?;
 
-        Supabase::handle_response(response).await
+        let user_data = Supabase::handle_response(response).await?; // Get user data
+        println!("User data: initial_sign_up: {:?}", user_data);
+
+        let user_id = user_data
+            .get("user")
+            .unwrap()
+            .get("id")
+            .unwrap()
+            .as_str()
+            .unwrap();
+
+        Ok(user_id.to_string())
     }
 
     async fn get_user_tools(&self, user_id: &str) -> Result<Vec<String>, String> {

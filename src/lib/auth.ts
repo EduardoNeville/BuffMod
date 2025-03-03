@@ -57,6 +57,7 @@ export async function signIn(email: string, password: string) {
     try {
         const entries: Entry[] = await invoke("sign_in", { email, password });
         await store_keys(entries);
+        console.log("User successfully signed in");
     } catch (error) {
         console.error("Sign-in error:", error);
         const errorMessage = typeof error === "string" ? error : JSON.stringify(error);

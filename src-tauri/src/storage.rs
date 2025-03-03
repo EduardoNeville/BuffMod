@@ -33,7 +33,7 @@ impl Serialize for StorageError {
     }
 }
 
-fn get_database_path(app_handle: &AppHandle, user_id: &str) -> Result<PathBuf, StorageError> {
+pub fn get_database_path(app_handle: &AppHandle, user_id: &str) -> Result<PathBuf, StorageError> {
     let mut data_path = app_handle
         .path()
         .data_dir()

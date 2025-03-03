@@ -1,5 +1,5 @@
 use crate::secure_db_access::SecureDbError;
-use crate::storage::{new_db, StorageError};
+use crate::storage::{get_database_path, new_db, StorageError};
 use crate::supabase::{Supabase, SupabaseError};
 use crate::{AppState, StateWrapper};
 
@@ -49,38 +49,61 @@ impl Serialize for AuthError {
 #[tauri::command]
 pub async fn sign_in(
     state: tauri::State<'_, StateWrapper>,
+    app_handle: tauri::AppHandle,
     email: String,
     password: String
-) -> Result<Vec<String>, AuthError> {
+) -> Result<Vec<Entry>, AuthError> {
     let supabase = Supabase::new()
         .map_err(|e| AuthError::SupabaseError(e))?; 
     
-    let user_data = supabase
+    let user_id = supabase
         .sign_in(&email, &password)
         .await
         .map_err(|e| AuthError::SupabaseError(e))?;
-    
-    let user_id = user_data.get("user").and_then(|u| u.get("id"))
-        .and_then(|id| id.as_str())
-        .ok_or(AuthError::InvalidUserData)?;
 
     println!("[auth.rs::sign_in] Successfully authenticated user_id: {:?}", user_id);
 
-    let enc_key = crate::secure_db_access::EncKey::new(user_id)
+    let enc_key = crate::secure_db_access::EncKey::new(&user_id)
         .map_err(|e| AuthError::SecureDbError(e))?;
     
-    let db_key = enc_key.derive_encryption_key(user_id)
+    let db_key = enc_key.derive_encryption_key(&user_id)
         .map_err(|e| AuthError::SecureDbError(e))?;
 
+    // 🛠️ Store DB encryption key in app state
     let str_db_key = general_purpose::STANDARD.encode(&db_key);
-    let mut loc_state = state.lock().unwrap();
-    if let Some(ref mut s) = *loc_state {
-        s.db_key = Some(str_db_key.clone());
-    } else {
-        *loc_state = Some(AppState { db_key: Some(str_db_key.clone()), db_path: None });
+    {
+        let mut loc_state = state.lock().unwrap();
+        println!("Loc state started");
+        if let Some(ref mut s) = *loc_state {
+            println!("Storing db_key");
+            s.db_key = Some(str_db_key.to_owned());
+        } else {
+            *loc_state = Some(AppState { db_key: Some(str_db_key.to_owned()), db_path: None });
+        }
+    } // Lock is released here when loc_state is dropped
+
+
+    {
+        let mut loc_state = state.lock().unwrap();
+        let db_path = get_database_path(&app_handle, &&user_id)?;
+        // ✅ Update AppState with the new database path
+        if let Some(ref mut s) = *loc_state {
+            s.db_path = Some(db_path.clone());
+        } else {
+            *loc_state = Some(AppState { db_key: Some(str_db_key.to_owned()), db_path: Some(db_path.clone()) });
+        }
     }
 
-    Ok(vec![user_id.to_string(), str_db_key])
+    Ok(vec![
+        Entry {
+            key: "db_key".to_string(),
+            value: str_db_key.to_string()
+        },
+        Entry {
+            key: "user_id".to_string(),
+            value: user_id.to_string()
+        }
+    ])
 }
 
 /// Command to handle initial user sign-up
