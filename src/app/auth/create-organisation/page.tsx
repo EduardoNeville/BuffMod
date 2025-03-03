@@ -46,8 +46,6 @@ export function CreateOrganizationPage() {
         description: "Organization and account created successfully.",
       });
 
-      localStorage.setItem("authToken", `${values.email}-${values.orgName}`)
-
       // Navigate to dashboard
       navigate("/dashboard");
     } catch (error) {

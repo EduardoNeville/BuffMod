@@ -66,23 +66,31 @@ export async function signIn(email: string, password: string) {
 
 const store_keys = async (entries: Entry[]) => {
     // Pass on the user_id check sign_in in auth.rs
-    const { stronghold, client } = await initStronghold(entries[2].value);
+    console.log("Initing Stronghold...")
+    const { stronghold, client } = await initStronghold(entries[0].value);
     const store = client.getStore();
+    console.log("Store found...")
     entries.map((e) => {
       insertRecord(store, e.key, e.value)
     });
-    await stronghold.save();
+    console.log("Saving stronghold...")
+    stronghold.save();
+    console.log("Stronghold saved...")
 };
 
 const initStronghold = async (user_id: string) => {
   const vaultPath = `${await appDataDir()}/vault.hold`;
   const vaultPassword = sha256(user_id);
+  console.log("Stronghold loading")
   const stronghold = await Stronghold.load(vaultPath, vaultPassword);
+  console.log("Stronghold loaded")
 
   let client: Client;
   const clientName = user_id;
   try {
+    console.log("Client loading")
     client = await stronghold.loadClient(clientName);
+    console.log("Client loaded")
   } catch {
     client = await stronghold.createClient(clientName);
   }
@@ -95,6 +103,7 @@ const initStronghold = async (user_id: string) => {
 
 // Insert a record to the store
 async function insertRecord(store: any, key: string, value: string) {
+  console.log("inserting: ", key, value)
   const data = Array.from(new TextEncoder().encode(value));
   await store.insert(key, data);
 }

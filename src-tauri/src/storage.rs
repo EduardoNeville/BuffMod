@@ -9,18 +9,18 @@ use crate::{db_api::{open_encrypted_db, DbApiError}, AppState, StateWrapper};
 /// Custom error type for SecureStorage
 #[derive(Error, Debug)]
 pub enum StorageError {
-    #[error("Failed to open database: {0}")]
+    #[error("[storage.rs::open_database] Failed to open database: {0}")]
     DatabaseError(#[from] rusqlite::Error),
 
-    #[error("Invalid database path: {path:?}")]
+    #[error("[storage.rs::get_database_path] Invalid database path: {path:?}")]
     InvalidDbPath {
         path: Option<PathBuf>
     },
 
-    #[error("Tauri error: {0}")]
+    #[error("[storage.rs::tauri_error] Tauri error encountered: {0}")]
     TauriError(#[from] tauri::Error),
 
-    #[error("Handling API: {0}")]
+    #[error("[storage.rs::db_api] Database API error: {0}")]
     DbApiError(#[from] DbApiError),
 }
 
@@ -39,7 +39,7 @@ fn get_database_path(app_handle: &AppHandle, user_id: &str) -> Result<PathBuf, S
         .data_dir()
         .map_err(StorageError::TauriError)?;
 
-    data_path = data_path.join(format!("storage/{}.sqlite", user_id));
+    data_path = data_path.join(format!("buffmod/storage/{}.sqlite", user_id));
 
     println!("data_path: {:?}", data_path);
 

@@ -1,5 +1,3 @@
-use std::sync::Mutex;
-
 use crate::secure_db_access::SecureDbError;
 use crate::storage::{new_db, StorageError};
 use crate::supabase::{Supabase, SupabaseError};
@@ -13,24 +11,29 @@ use base64::{engine::general_purpose, Engine as _};
 /// Define a custom AuthError enum for improved handling
 #[derive(Debug, Error)]
 pub enum AuthError {
-    #[error("Supabase error: {0}")]
+    #[error("[auth.rs::supabase_error] Supabase API Error: {0}")]
     SupabaseError(#[from] SupabaseError),
 
-    #[error("Key encryption error: {0}")]
+    #[error("[auth.rs::secure_db_access] Database encryption error: {0}")]
     SecureDbError(#[from] SecureDbError),
 
-    #[error("Error storing into DB: {0}")]
+    #[error("[auth.rs::storage_error] Storage handling error: {0}")]
     StorageError(#[from] StorageError),
 
-    #[error("Secure DB error: {0}")]
+    #[error("[auth.rs::stronghold_error] Secure Stronghold error: {0}")]
     StrongholdError(#[from] stronghold::Error),
 
-    #[error("Invalid user data format")]
+    #[error("[auth.rs::invalid_user_data] User data format is invalid.")]
     InvalidUserData,
 
-    #[error("Stronghold instance not available")]
+    #[error("[auth.rs::stronghold_unavailable] The Stronghold instance is not available.")]
     StrongholdUnavailable,
+}
 
+#[derive(Serialize)]
+pub struct Entry {
+    pub key: String,
+    pub value: String,
 }
 
 // Implement serde::Serialize so AuthError can be passed through Tauri commands
@@ -49,45 +52,35 @@ pub async fn sign_in(
     email: String,
     password: String
 ) -> Result<Vec<String>, AuthError> {
-    let supabase = Supabase::new()?;
+    let supabase = Supabase::new()
+        .map_err(|e| AuthError::SupabaseError(e))?; 
     
-    // 🔐 Authenticate user with Supabase
-    let user_data = supabase.sign_in(&email, &password).await?;
+    let user_data = supabase
+        .sign_in(&email, &password)
+        .await
+        .map_err(|e| AuthError::SupabaseError(e))?;
     
-    // ✅ Extract tokens
-    let access_token = user_data["access_token"]
-        .as_str()
-        .ok_or(AuthError::InvalidUserData)?;
-    
-    let refresh_token = user_data["refresh_token"]
-        .as_str()
+    let user_id = user_data.get("user").and_then(|u| u.get("id"))
+        .and_then(|id| id.as_str())
         .ok_or(AuthError::InvalidUserData)?;
 
-    let user_id = user_data["user"]["id"]
-        .as_str()
-        .ok_or(AuthError::InvalidUserData)?;
+    println!("[auth.rs::sign_in] Successfully authenticated user_id: {:?}", user_id);
 
-    println!("user_id: {:?}", user_id);
+    let enc_key = crate::secure_db_access::EncKey::new(user_id)
+        .map_err(|e| AuthError::SecureDbError(e))?;
     
-    // Generate DB encryption key
-    let enc_key = crate::secure_db_access::EncKey::new(access_token, refresh_token, user_id)?;
-    let db_key = enc_key.derive_encryption_key(user_id)?;
+    let db_key = enc_key.derive_encryption_key(user_id)
+        .map_err(|e| AuthError::SecureDbError(e))?;
 
-    // 🛠️ Store DB encryption key in app state
     let str_db_key = general_purpose::STANDARD.encode(&db_key);
     let mut loc_state = state.lock().unwrap();
     if let Some(ref mut s) = *loc_state {
-        s.db_key = Some(str_db_key.to_owned());
+        s.db_key = Some(str_db_key.clone());
     } else {
-        *loc_state = Some(AppState { db_key: Some(str_db_key.to_owned()), db_path: None });
+        *loc_state = Some(AppState { db_key: Some(str_db_key.clone()), db_path: None });
     }
 
-    Ok(vec![
-        access_token.to_string(),
-        refresh_token.to_string(),
-        user_id.to_string(),
-        str_db_key
-    ])
+    Ok(vec![user_id.to_string(), str_db_key])
 }
 
 /// Command to handle initial user sign-up
@@ -99,44 +92,42 @@ pub async fn initial_sign_up(
     password: String,
     org_name: String,
     user_name: String,
-) -> Result<Vec<String>, AuthError> {
+) -> Result<Vec<Entry>, AuthError> {
     let supabase = Supabase::new()?;
-    let user_data = supabase.initial_sign_up(&email, &password, &org_name, &user_name).await?;
-
-    let access_token = user_data["access_token"]
-        .as_str()
-        .ok_or(AuthError::InvalidUserData)?;
-    
-    let refresh_token = user_data["refresh_token"]
-        .as_str()
-        .ok_or(AuthError::InvalidUserData)?;
-
-    let user_id = user_data["user"]["id"]
-        .as_str()
-        .ok_or(AuthError::InvalidUserData)?;
+    let user_id = supabase.initial_sign_up(&email, &password, &org_name, &user_name).await?;
 
     println!("user_id: {:?}", user_id);
     
     // Generate DB encryption key
-    let enc_key = crate::secure_db_access::EncKey::new(access_token, refresh_token, user_id)?;
-    let db_key = enc_key.derive_encryption_key(user_id)?;
+    println!("Encrypting key...");
+    let enc_key = crate::secure_db_access::EncKey::new(&user_id)?;
+    let db_key = enc_key.derive_encryption_key(&user_id)?;
+    println!("Key encrypted...");
 
     // 🛠️ Store DB encryption key in app state
     let str_db_key = general_purpose::STANDARD.encode(&db_key);
-    let mut loc_state = state.lock().unwrap();
-    if let Some(ref mut s) = *loc_state {
-        s.db_key = Some(str_db_key.to_owned());
-    } else {
-        *loc_state = Some(AppState { db_key: Some(str_db_key.to_owned()), db_path: None });
-    }
-
-    new_db(state.to_owned(), &app_handle, user_id)?;
+    {
+        let mut loc_state = state.lock().unwrap();
+        println!("Loc state started");
+        if let Some(ref mut s) = *loc_state {
+            println!("Storing db_key");
+            s.db_key = Some(str_db_key.to_owned());
+        } else {
+            *loc_state = Some(AppState { db_key: Some(str_db_key.to_owned()), db_path: None });
+        }
+    } // Lock is released here when loc_state is dropped
+    println!("Createding db...");
+    new_db(state.to_owned(), &app_handle, &user_id)?;
 
     Ok(vec![
-        access_token.to_string(),
-        refresh_token.to_string(),
-        user_id.to_string(),
-        str_db_key
+        Entry {
+            key: "db_key".to_string(),
+            value: str_db_key.to_string()
+        },
+        Entry {
+            key: "user_id".to_string(),
+            value: user_id.to_string()
+        }
     ])
 }
 
@@ -159,14 +150,6 @@ async fn invite_sign_up(
     let supabase = Supabase::new()?;
     let user_data = supabase.invite_sign_up(&email, &password, &invite_code, &user_name).await?;
 
-    let access_token = user_data["access_token"]
-        .as_str()
-        .ok_or(AuthError::InvalidUserData)?;
-    
-    let refresh_token = user_data["refresh_token"]
-        .as_str()
-        .ok_or(AuthError::InvalidUserData)?;
-
     let user_id = user_data["user"]["id"]
         .as_str()
         .ok_or(AuthError::InvalidUserData)?;
@@ -174,7 +157,7 @@ async fn invite_sign_up(
     println!("user_id: {:?}", user_id);
     
     // Generate DB encryption key
-    let enc_key = crate::secure_db_access::EncKey::new(access_token, refresh_token, user_id)?;
+    let enc_key = crate::secure_db_access::EncKey::new(user_id)?;
     let db_key = enc_key.derive_encryption_key(user_id)?;
 
     // 🛠️ Store DB encryption key in app state
@@ -189,8 +172,6 @@ async fn invite_sign_up(
     new_db(state.to_owned(), &app_handle, user_id)?;
 
     Ok(vec![
-        access_token.to_string(),
-        refresh_token.to_string(),
         user_id.to_string(),
         str_db_key
     ])
