@@ -97,6 +97,30 @@ pub fn list_clients(state: tauri::State<StateWrapper>) -> Result<Vec<Client>, Db
     Ok(clients)
 }
 
+/// 📄 Get a single client by ID
+#[tauri::command]
+pub fn get_client_by_id(state: tauri::State<StateWrapper>, client_id: i32) -> Result<Client, DbApiError> {
+    let loc_state = state.lock().unwrap();
+    let db_key = loc_state.as_ref().and_then(|s| s.db_key.clone()).unwrap();
+    let db_path = loc_state.as_ref().and_then(|s| s.db_path.clone()).unwrap();
+    let db_conn = open_encrypted_db(&db_path, &db_key)?;
+
+    let mut stmt = db_conn.prepare("SELECT id, name, email, phone FROM clients WHERE id = ?1")?;
+    let client_result = stmt.query_row([client_id], |row| {
+        Ok(Client {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            email: row.get(2)?,
+            phone: row.get(3)?,
+        })
+    });
+
+    match client_result {
+        Ok(client) => Ok(client),
+        Err(_) => Err(DbApiError::SqliteError(rusqlite::Error::QueryReturnedNoRows)),
+    }
+}
+
 /// 📌 Event Struct
 #[derive(Serialize, Deserialize)]
 pub struct Event {

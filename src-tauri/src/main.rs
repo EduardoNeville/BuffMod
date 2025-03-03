@@ -37,7 +37,8 @@ async fn main() {
             auth::initial_sign_up,
             auth::sign_in,
             db_api::create_client,
-            db_api::list_clients
+            db_api::list_clients,
+            db_api::get_client_by_id
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
