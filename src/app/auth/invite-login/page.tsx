@@ -34,7 +34,6 @@ export function InviteLoginPage() {
 
   const handleSubmit = async (values: z.infer<typeof formSchema>) => {
     console.log("Form submitted:", values);
-    localStorage.setItem("authToken", "mock_token"); // Store authentication session
     navigate("/home"); // Redirect to dashboard
   };
 

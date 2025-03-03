@@ -5,7 +5,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -16,21 +15,22 @@ import { Label } from "@/components/ui/label";
 const clientSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email address"),
-  phone: z.string().optional(), // Phone is optional
+  phone: z.string().optional(),
 });
 
-export default function NewClientDialog() {
+type NewClientDialogProps = {
+  refreshClients: () => void;
+};
+
+export default function NewClientDialog({ refreshClients }: NewClientDialogProps) {
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast(); // Initialize toast notifications
+  const [isOpen, setIsOpen] = useState(false);
+  const { toast } = useToast();
 
   // ✅ Initialize react-hook-form with validation
   const form = useForm<z.infer<typeof clientSchema>>({
     resolver: zodResolver(clientSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      phone: "",
-    },
+    defaultValues: { name: "", email: "", phone: "" },
   });
 
   // ✅ Submit form to backend
@@ -46,9 +46,10 @@ export default function NewClientDialog() {
         description: `Client ${values.name} has been added successfully.`,
       });
 
-      form.reset(); // Reset form fields on success
+      form.reset(); // Reset form fields
+      refreshClients(); // Refresh client list
+      setIsOpen(false); // Close dialog
     } catch (error) {
-      // Ensure proper error display
       const errorMessage = error instanceof Error ? error.message : String(error);
 
       // Show error notification
@@ -62,22 +63,18 @@ export default function NewClientDialog() {
   };
 
   return (
-    <Dialog>
-      <DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
         <Button variant="outline">New Client</Button>
       </DialogTrigger>
-      
+
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create New Client</DialogTitle>
           <DialogDescription>Fill in the details to add a new client</DialogDescription>
         </DialogHeader>
 
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }} 
-          animate={{ opacity: 1, y: 0 }} 
-          transition={{ duration: 0.3 }}
-        >
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleCreateClient)} className="space-y-4">
               <FormField
@@ -122,7 +119,6 @@ export default function NewClientDialog() {
                 )}
               />
 
-              {/* Submit Button */}
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Saving..." : "Create Client"}
               </Button>
