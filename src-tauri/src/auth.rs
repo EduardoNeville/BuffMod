@@ -82,10 +82,16 @@ pub async fn sign_in(
         }
     } // Lock is released here when loc_state is dropped
 
+    println!("New db starting...");
+    new_db(state.to_owned(), &app_handle, &user_id)?;
+    println!("New db created...");
 
     {
+        println!("Finding db_path");
         let mut loc_state = state.lock().unwrap();
+
         let db_path = get_database_path(&app_handle, &&user_id)?;
+
         // ✅ Update AppState with the new database path
         if let Some(ref mut s) = *loc_state {
             s.db_path = Some(db_path.clone());
@@ -93,6 +99,7 @@ pub async fn sign_in(
             *loc_state = Some(AppState { db_key: Some(str_db_key.to_owned()), db_path: Some(db_path.clone()) });
         }
     }
+
 
     Ok(vec![
         Entry {

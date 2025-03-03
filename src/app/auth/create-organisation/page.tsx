@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast"; // Import Toast Hook
+import { useState } from "react";
 
 // Define Form Schema using Zod
 const formSchema = z.object({
@@ -23,6 +24,8 @@ export function CreateOrganizationPage() {
   const navigate = useNavigate();
   const { toast } = useToast();  // Initialize toast
 
+  const [loading, setLoading] = useState<boolean>(false);
+
   // Set up react-hook-form with Zod
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -35,6 +38,7 @@ export function CreateOrganizationPage() {
   });
 
   const handleCreateOrganization = async (values: z.infer<typeof formSchema>) => {
+    setLoading(true);
     console.log("Sanitization works...");
 
     try {
@@ -138,8 +142,8 @@ export function CreateOrganizationPage() {
                 />
 
                 {/* Submit Button */}
-                <Button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-opacity-90">
-                  Create
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "Creating..." : "Create"}
                 </Button>
 
                 {/* Back Button */}

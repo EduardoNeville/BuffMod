@@ -65,17 +65,18 @@ pub fn new_db(state: tauri::State<StateWrapper>, app_handle: &AppHandle, user_id
     let db_key = loc_state.as_ref().and_then(|s| s.db_key.clone());
 
     // Get DB path, or create the missing directory
-    let db_path = match get_database_path(app_handle, user_id) {
-        Ok(path) => path,
-        Err(StorageError::InvalidDbPath { path: Some(missing_path) }) => {
-            // Ensure parent directory exists
-            if let Some(parent) = missing_path.parent() {
-                std::fs::create_dir_all(parent)
-                    .map_err(|_| StorageError::DatabaseError(rusqlite::Error::InvalidPath(missing_path.clone())))?;
-            }
-            missing_path
-        },
-        Err(e) => return Err(e),  // Forward other unexpected errors
+    let mut db_path = app_handle
+        .path()
+        .data_dir()
+        .map_err(StorageError::TauriError)?;
+
+    db_path = db_path.join(format!("buffmod/storage/{}.sqlite", user_id));
+
+    println!("data_path: {:?}", db_path);
+
+    if let Some(parent) = db_path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|_| StorageError::DatabaseError(rusqlite::Error::InvalidPath(db_path.clone())))?;
     };
 
     // ✅ Update AppState with the new database path

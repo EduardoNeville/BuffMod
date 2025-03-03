@@ -20,8 +20,8 @@ pub enum DbApiError {
     #[error("🛑 SQLite Error: {0}")]
     SqliteError(#[from] rusqlite::Error),
 
-    #[error("Encryption error")]
-    EncryptionError,
+    #[error("Encryption error: {0}")]
+    EncryptionError(String),
 }
 
 // Implement serialization so we can return errors in Tauri commands
@@ -48,8 +48,13 @@ pub struct Client {
 pub fn open_encrypted_db(db_path: &PathBuf, encryption_key: &str) -> Result<Connection, DbApiError> {
     let conn = Connection::open(db_path).map_err(|e| DbApiError::SqliteError(e))?;
 
-    conn.execute(&format!("PRAGMA key = '{}'", encryption_key), [])
-        .map_err(|_| DbApiError::EncryptionError)?;
+    //match conn.execute(
+    //    &format!("PRAGMA key = '{}'", encryption_key),
+    //    params![]
+    //) {
+    //    Ok(_) => println!("Pragma key created..."),
+    //    Err(err) => return Err(DbApiError::EncryptionError(err.to_string()))
+    //}
 
     Ok(conn)
 }
