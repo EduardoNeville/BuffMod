@@ -2,11 +2,13 @@ import React from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export interface CalendarEntry {
-  date: string;
+  schedule_time: string;
   name: string;
   icon: string;
   startTime: string;
-  endTime: string;
+  endTime?: string;
+  description: string;
+  status: "upcoming" | "ongoing" | "completed";
 }
 
 interface CalendarEventProps {

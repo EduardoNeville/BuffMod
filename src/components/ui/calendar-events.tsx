@@ -21,10 +21,10 @@ const CalendarEvents: React.FC = () => {
 
   // TODO: Backend
   const sampleEvents: CalendarEntry[] = [
-    { date: "2025-02-10", name: "Meeting", icon: "📅", startTime: "09:00", endTime: "10:30" },
-    { date: "2025-02-10", name: "Party", icon: "🎉", startTime: "18:00", endTime: "20:00" },
-    { date: "2025-02-15", name: "Dentist", icon: "🦷", startTime: "14:00", endTime: "14:45" },
-    { date: "2025-02-20", name: "Flight", icon: "✈️", startTime: "06:00", endTime: "09:00" }
+    { schedule_time: "2025-02-10", name: "Meeting", icon: "📅", startTime: "09:00", endTime: "10:30" },
+    { schedule_time: "2025-02-10", name: "Party", icon: "🎉", startTime: "18:00", endTime: "20:00" },
+    { schedule_time: "2025-02-15", name: "Dentist", icon: "🦷", startTime: "14:00", endTime: "14:45" },
+    { schedule_time: "2025-02-20", name: "Flight", icon: "✈️", startTime: "06:00", endTime: "09:00" }
   ];
 
   return (

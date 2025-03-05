@@ -30,7 +30,7 @@ export default function NewClientDialog({ refreshClients }: NewClientDialogProps
   // ✅ Initialize react-hook-form with validation
   const form = useForm<z.infer<typeof clientSchema>>({
     resolver: zodResolver(clientSchema),
-    defaultValues: { name: "", email: "", phone: "" },
+    defaultValues: { name: "", email: "", phone: "", address: ""},
   });
 
   // ✅ Submit form to backend

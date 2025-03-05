@@ -12,8 +12,7 @@ import { Search, Plus, ChevronDown, ChevronUp } from "lucide-react"
 import SocialMediaNewPost from "@/app/dashboard/modules/social-media/social-media-new-post"
 import { invoke } from "@tauri-apps/api/core"
 
-export default function SocialMediaHeader() {
-  // Example channel list state, can be updated dynamically
+export default function SocialMediaHeader({ fetchPosts }: { fetchPosts: () => void }) {  // Example channel list state, can be updated dynamically
   // TODO: Translate
   // TODO: Backend
   const [channels, setChannels] = useState(["Instagram", "Facebook", "X", "TikTok"])
@@ -63,7 +62,7 @@ export default function SocialMediaHeader() {
         <Separator orientation="vertical" className="h-6" />
 
         {/* Create Post Button */}
-        <SocialMediaNewPost />
+        <SocialMediaNewPost fetchPosts={fetchPosts} />
       </div>
 
       {/* Search Button */}

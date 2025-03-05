@@ -27,7 +27,7 @@ const CalendarDays: React.FC<CalendarDaysProps> = ({ currentDay, onSelect, event
       const isToday = today.toDateString() === date.toDateString();
       const isSelected = currentDay.toDateString() === date.toDateString();
 
-      const dayEvents = events.filter((event) => event.date === formattedDate);
+      const dayEvents = events.filter((event) => event.schedule_time === formattedDate);
       const hasEvents = dayEvents.length > 0;
 
       return (
@@ -67,7 +67,7 @@ const CalendarDays: React.FC<CalendarDaysProps> = ({ currentDay, onSelect, event
               <div className="space-y-3">
                 {dayEvents.map((event, index) => (
                   <CalendarEvent 
-                    key={`${event.date}-${index}`}
+                    key={`${event.schedule_time}-${index}`}
                     index={index}
                     dayEvent={event} 
                   />
