@@ -385,12 +385,12 @@ pub fn list_social_posts(state: tauri::State<StateWrapper>) -> Result<Vec<Social
     let db_conn = open_encrypted_db(&db_path, &db_key)?;
 
     // Use LEFT JOIN to include posts without an event_id
-    let mut stmt = db_conn.prepare(
-        "SELECT p.id, p.event_id, p.platform, p.content, p.status, e.schedule_time 
-         FROM social_media_posts p 
-         WHERE p.status='scheduled' OR p.status='posted'
-         LEFT JOIN events e ON p.event_id = e.id"
-    )?;
+    let mut stmt = db_conn.prepare("
+        SELECT p.id, p.event_id, p.platform, p.content, p.status, e.schedule_time 
+        FROM social_media_posts p 
+        LEFT JOIN events e ON p.event_id = e.id
+        WHERE p.status='scheduled' OR p.status='posted'
+    ")?;
 
     let posts_iter = stmt.query_map([], |row| {
         Ok(SocialMediaPostWithEvent {
