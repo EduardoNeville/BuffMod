@@ -76,20 +76,21 @@ export default function SocialMediaNewPost({ fetchPosts }: { fetchPosts: () => v
     setFile(uploadedFile);
 
     try {
+      // Dirs
       const tempDir = await path.dataDir();
-      const tempFilePath = `buffmod/tmp/temp_upload_${Date.now()}.${uploadedFile.name.split('.').pop()}`;
-
+      const dataDirs = "buffmod/tmp";
+      const tempFilePath = `${dataDirs}/temp_upload_${Date.now()}.${uploadedFile.name.split('.').pop()}`;
       console.log("data dir: ", tempDir);
-      const fileArrayBuff = await uploadedFile.arrayBuffer();
       const fullPath = `${tempDir}/${tempFilePath}`;
+      setFilePath(fullPath)
 
+      const fileArrayBuff = await uploadedFile.arrayBuffer();
       await writeFile(
         tempFilePath,
         new Uint8Array(fileArrayBuff),
         { baseDir: path.BaseDirectory.Data }
       );
 
-      setFilePath(fullPath)
     } catch (error) {
       console.log("Error saving file: ", error);
       alert("Failed to process the file");
@@ -116,10 +117,6 @@ export default function SocialMediaNewPost({ fetchPosts }: { fetchPosts: () => v
           file_path: filePath,
         }
       });
-
-      // Deletion of temp file done in the backend
-      const newFilePath = await invoke('retrieve_post_file', { socialMediaPostId: 18 });
-      console.log(`File saved at: ${newFilePath}`);
 
       toast({ title: "Success!", description: `Post ${postStatus.toLowerCase()} successfully!` });
 

@@ -45,7 +45,12 @@ pub fn get_database_path(app_handle: &AppHandle, user_id: &str) -> Result<PathBu
         .data_dir()
         .map_err(StorageError::TauriError)?;
 
-    data_path = data_path.join(format!("buffmod/storage/{}.sqlite", user_id));
+    let dirs = String::from("buffmod/storage/");
+    std::fs::create_dir_all(&dirs).map_err(|e| {
+        DbApiError::FileError(format!("Failed to create directory {}: {}", dirs, e))
+    })?;
+    data_path = data_path.join(dirs);
+    data_path = data_path.join(format!("{}.db", user_id));
 
     println!("data_path: {:?}", data_path);
 

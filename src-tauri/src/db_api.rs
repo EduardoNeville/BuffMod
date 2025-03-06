@@ -66,7 +66,8 @@ pub fn open_encrypted_db(
     db_path: &PathBuf,
     encryption_key: &str,
 ) -> Result<Connection, DbApiError> {
-    let conn = Connection::open(db_path).map_err(|e| DbApiError::SqliteError(e))?;
+    let conn = Connection::open(db_path)
+        .map_err(|e| DbApiError::SqliteError(e))?;
 
     //match conn.execute(
     //    &format!("PRAGMA key = '{}'", encryption_key),
@@ -342,13 +343,6 @@ impl FromSql for SocialMediaStatus {
     }
 }
 
-// Deletes temp_files used the storing process
-#[tauri::command]
-pub fn delete_temp_file(path: String) -> Result<(), String> {
-    std::fs::remove_file(&path).map_err(|e| format!("Failed to delete temp file: {}", e))?;
-    Ok(())
-}
-
 /// 📢 Publish social media post
 #[derive(Deserialize)]
 pub struct ScheduleSocialPostArgs {
@@ -432,6 +426,10 @@ pub fn schedule_social_post(
                 params![social_media_post_id, compressed_data],
             )
             .map_err(|e| DbApiError::SqliteError(e))?;
+
+        // Removing the temp file
+        let _ = std::fs::remove_file(file_path)
+            .map_err(|e| DbApiError::FileError(format!("File.remove error: {}", e)))?;
     }
 
     Ok(())
@@ -510,8 +508,6 @@ pub fn retrieve_post_file(
     decoder.read_to_end(&mut decompressed_data).unwrap();
 
     // Determine the file type (basic approach with default extension)
-    let file_extension = ".bin"; // Default fallback
-    #[cfg(feature = "infer")]
     let file_extension = {
         let kind = infer::get(&decompressed_data);
         match kind {
@@ -521,9 +517,9 @@ pub fn retrieve_post_file(
     };
 
     // Construct the output file path in dataDir()/buffmod/
-    let mut data_dir = app_handle.path().data_dir()
+    let data_dir = app_handle.path().data_dir()
         .map_err(|e| DbApiError::FileError(format!("Failed to resolve app data dir: {}", e)))?;
-    let output_dir = data_dir.join("buffmod");
+    let output_dir = data_dir.join("buffmod/tmp");
     std::fs::create_dir_all(&output_dir).map_err(|e| {
         DbApiError::FileError(format!("Failed to create directory {}: {}", output_dir.display(), e))
     })?;
