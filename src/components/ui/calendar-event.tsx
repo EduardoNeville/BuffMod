@@ -24,21 +24,20 @@ const CalendarEvent: React.FC<CalendarEventProps> = ({ index, dayEvent }) => {
       <DialogTrigger asChild>
         <div className="p-3 border rounded-lg shadow-md">
           <h3>
-            {dayEvent.icon} &nbsp; {dayEvent.name}
+            {dayEvent.title}
           </h3>
           <p>
-            {dayEvent.startTime} - {dayEvent.endTime}
+            {dayEvent.schedule_time}
           </p>
         </div>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {dayEvent.icon} &nbsp; {dayEvent.name}
+            {dayEvent.title}
           </DialogTitle>
           <DialogDescription>
-            This action cannot be undone. This will permanently delete your account
-            and remove your data from our servers.
+            Event with that title
           </DialogDescription>
         </DialogHeader>
       </DialogContent>

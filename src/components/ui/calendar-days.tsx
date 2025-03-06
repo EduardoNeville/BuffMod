@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import CalendarEvent, { CalendarEntry } from "@/components/ui/calendar-event";
 import { EventKind } from "@/lib/types";
 import { invoke } from "@tauri-apps/api/core";
+import { Calendar, Presentation, Share2 } from "lucide-react";
 
 interface CalendarDaysProps {
   currentDay: Date;
@@ -81,6 +82,18 @@ const CalendarDays: React.FC<CalendarDaysProps> = ({ currentDay, onSelect, event
       });
       const hasEvents = dayEvents.length > 0;
 
+      // Helper function to map event kind to icon
+      const getIconForEvent = (kind: EventKind) => {
+        switch (kind) {
+          case EventKind.SocialMedia:
+            return <Share2 />;
+          case EventKind.Meeting:
+            return <Presentation />;
+          default:
+            return <Calendar />;
+        }
+      };
+
       // Debugging log to check events per day
       console.log(`Day ${formattedDate}: ${dayEvents.length} events`);
 
@@ -97,8 +110,12 @@ const CalendarDays: React.FC<CalendarDaysProps> = ({ currentDay, onSelect, event
             >
               <div className="text-xs">{isValid ? dayNum : ""}</div>
               {hasEvents && (
-                <div className="flex items-center bg-blue-100 text-xs mt-1 p-1 rounded-md cursor-pointer shadow-md">
-                  {dayEvents[0].title}
+                <div className="flex items-center bg-blue-100 text-xs mt-1 p-1 rounded-md cursor-pointer shadow-md truncate">
+                  {dayEvents.map((event, i) => (
+                    <div key={i}>
+                      {getIconForEvent(event.kind)}
+                    </div>
+                  ))}
                 </div>
               )}
               {dayEvents.length > 1 && (
