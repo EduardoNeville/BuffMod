@@ -1,11 +1,11 @@
-pub mod supabase;
-pub mod storage;
 pub mod auth;
 pub mod db_api;
 pub mod secure_db_access;
+pub mod storage;
+pub mod supabase;
 
-use tauri::Manager;
 use std::{path::PathBuf, sync::Mutex};
+use tauri::Manager;
 
 use tauri_plugin_stronghold;
 
@@ -23,13 +23,15 @@ type StateWrapper = Mutex<Option<AppState>>;
 #[tokio::main]
 async fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             let salt_path = app
                 .path()
                 .app_local_data_dir()
                 .expect("could not resolve app local data path")
                 .join("salt.txt");
-            app.handle().plugin(tauri_plugin_stronghold::Builder::with_argon2(&salt_path).build())?;
+            app.handle()
+                .plugin(tauri_plugin_stronghold::Builder::with_argon2(&salt_path).build())?;
             Ok(())
         })
         .manage(Mutex::new(None::<AppState>)) // Initialize state as None
@@ -42,9 +44,8 @@ async fn main() {
             db_api::schedule_social_post,
             db_api::list_social_posts,
             db_api::list_event_kind,
+            db_api::retrieve_post_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-
-

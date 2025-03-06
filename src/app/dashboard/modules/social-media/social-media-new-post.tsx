@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { writeFile } from "@tauri-apps/plugin-fs";
+import * as path from '@tauri-apps/api/path';
 import {
   Dialog,
   DialogClose,
@@ -32,9 +34,11 @@ export default function SocialMediaNewPost({ fetchPosts }: { fetchPosts: () => v
   const [content, setContent] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<JSX.Element | null>(null);
+  const [filePath, setFilePath] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
   const [scheduleTime, setScheduleTime] = useState<string | undefined>(undefined);
   const [isScheduling, setIsScheduling] = useState(false);
+
   const { toast } = useToast();
 
   /** ✅ Toggle platform selection */
@@ -44,19 +48,52 @@ export default function SocialMediaNewPost({ fetchPosts }: { fetchPosts: () => v
     );
   };
 
+  /* Update file **/
+  useEffect(() => {
+    if (file) {
+      const fileType = file.type;
+      if (fileType.startsWith("image/")) {
+        setFilePreview(<ImageIcon />);
+      } else if (fileType.startsWith("video/")){
+        setFilePreview(<VideoIcon />);
+      } else {
+        setFilePreview(<FileIcon />);
+      } 
+    } else {
+      setFilePreview(null);
+    }
+  }, [file]);
+
   /** ✅ Handle File Upload */
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files?.length) return;
-    const uploadedFile = event.target.files[0];
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("Handle FileUpload...")
+    if (!event.target.files?.length) {
+      console.log("No length")
+      return
+    }
+
+    const uploadedFile = event.target.files[0]
     setFile(uploadedFile);
 
-    const fileType = uploadedFile.type;
-    if (fileType.startsWith("image/")) {
-      setFilePreview(<img src={URL.createObjectURL(uploadedFile)} alt="Preview" className="w-16 h-16 rounded-lg" />);
-    } else if (fileType.startsWith("video/")) {
-      setFilePreview(<VideoIcon size={32} />);
-    } else {
-      setFilePreview(<FileIcon size={32} />);
+    try {
+      const tempDir = await path.dataDir();
+      const tempFilePath = `buffmod/tmp/temp_upload_${Date.now()}.${uploadedFile.name.split('.').pop()}`;
+
+      console.log("data dir: ", tempDir);
+      const fileArrayBuff = await uploadedFile.arrayBuffer();
+      const fullPath = `${tempDir}/${tempFilePath}`;
+
+      await writeFile(
+        tempFilePath,
+        new Uint8Array(fileArrayBuff),
+        { baseDir: path.BaseDirectory.Data }
+      );
+
+      setFilePath(fullPath)
+    } catch (error) {
+      console.log("Error saving file: ", error);
+      alert("Failed to process the file");
+      setFile(null);
     }
   };
 
@@ -67,6 +104,7 @@ export default function SocialMediaNewPost({ fetchPosts }: { fetchPosts: () => v
     console.log("Final Post Status:", postStatus);
 
     try {
+      console.log("file_path: ", filePath);
       await invoke("schedule_social_post", {
         args: {
           post: {
@@ -75,8 +113,13 @@ export default function SocialMediaNewPost({ fetchPosts }: { fetchPosts: () => v
             status: postStatus,
           },
           schedule_time: isScheduling && scheduleDate ? format(scheduleDate, "yyyy-MM-dd HH:mm:ss") : "",
+          file_path: filePath,
         }
       });
+
+      // Deletion of temp file done in the backend
+      const newFilePath = await invoke('retrieve_post_file', { socialMediaPostId: 18 });
+      console.log(`File saved at: ${newFilePath}`);
 
       toast({ title: "Success!", description: `Post ${postStatus.toLowerCase()} successfully!` });
 

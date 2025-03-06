@@ -18,7 +18,11 @@
           "description": "Default file path resolution permissions",
           "windows": ["*"],
           "permissions": [
-            "core:path:default"
+            "core:path:default",
+            {
+              "identifier": "fs:allow-app-write",
+              "allow": [{ "path": "$APPDATA/**" }]
+            }
           ]
         },
         {
@@ -34,7 +38,6 @@
     },
     "windows": [
       {
-        "fullscreen": false,
         "height": 600,
         "resizable": true,
         "title": "buffmod",
@@ -43,7 +46,7 @@
       }
     ]
   },
-  "identifier": "com.tauri.dev",
+  "identifier": "buffmod",
   "bundle": {
     "active": true,
     "category": "DeveloperTool",
@@ -84,9 +87,6 @@
   "plugins": {
     "updater": {
       "active": false
-    },
-    "fs": {
-      "scope": ["$APPDATA/**", "$RESOURCE/**"]
     }
   }
 }

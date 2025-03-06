@@ -1,10 +1,13 @@
 use rusqlite::Connection;
 use serde::Serialize;
-use tauri::{AppHandle, Manager};
 use std::{fs, path::PathBuf, str::FromStr};
-use thiserror::Error; 
+use tauri::{AppHandle, Manager};
+use thiserror::Error;
 
-use crate::{db_api::{open_encrypted_db, DbApiError}, AppState, StateWrapper};
+use crate::{
+    db_api::{open_encrypted_db, DbApiError},
+    AppState, StateWrapper,
+};
 
 const CREATE_SCRIPT: &str = include_str!("../migrations/create_tables.sql");
 
@@ -15,16 +18,14 @@ pub enum StorageError {
     DatabaseError(#[from] rusqlite::Error),
 
     #[error("[storage.rs::get_database_path] Invalid database path: {path:?}")]
-    InvalidDbPath {
-        path: Option<PathBuf>
-    },
+    InvalidDbPath { path: Option<PathBuf> },
 
     #[error("[storage.rs::tauri_error] Tauri error encountered: {0}")]
     TauriError(#[from] tauri::Error),
 
     #[error("[storage.rs::db_api] Database API error: {0}")]
     DbApiError(#[from] DbApiError),
-    
+
     #[error("[storage.rs::db_api] SQL error: {0}")]
     SqlError(String),
 }
@@ -49,14 +50,16 @@ pub fn get_database_path(app_handle: &AppHandle, user_id: &str) -> Result<PathBu
     println!("data_path: {:?}", data_path);
 
     if !data_path.exists() {
-        return Err(StorageError::InvalidDbPath { path: Some(data_path.clone()) });
+        return Err(StorageError::InvalidDbPath {
+            path: Some(data_path.clone()),
+        });
     }
 
     Ok(data_path)
 }
 
 /// Initialize the storage with an optional encryption key
-/// 
+///
 /// # Parameters:
 /// - `state`: State of the App
 /// - `app_handle` : Handler (with path)
@@ -65,8 +68,12 @@ pub fn get_database_path(app_handle: &AppHandle, user_id: &str) -> Result<PathBu
 /// - `Ok(Connection)`: If initialization was successful.
 /// - `Err(StorageError)`: If an error occurs.
 /// Initialize the storage with encryption
-pub fn new_db(state: tauri::State<StateWrapper>, app_handle: &AppHandle, user_id: &str) -> Result<Connection, StorageError> {
-    let mut loc_state = state.lock().unwrap(); 
+pub fn new_db(
+    state: tauri::State<StateWrapper>,
+    app_handle: &AppHandle,
+    user_id: &str,
+) -> Result<Connection, StorageError> {
+    let mut loc_state = state.lock().unwrap();
     let db_key = loc_state.as_ref().and_then(|s| s.db_key.clone());
 
     // Get DB path, or create the missing directory
@@ -80,25 +87,28 @@ pub fn new_db(state: tauri::State<StateWrapper>, app_handle: &AppHandle, user_id
     println!("data_path: {:?}", db_path);
 
     if let Some(parent) = db_path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|_| StorageError::DatabaseError(rusqlite::Error::InvalidPath(db_path.clone())))?;
+        std::fs::create_dir_all(parent).map_err(|_| {
+            StorageError::DatabaseError(rusqlite::Error::InvalidPath(db_path.clone()))
+        })?;
     };
 
     // ✅ Update AppState with the new database path
     if let Some(ref mut s) = *loc_state {
         s.db_path = Some(db_path.clone());
     } else {
-        *loc_state = Some(AppState { db_key: db_key.to_owned(), db_path: Some(db_path.clone()) });
+        *loc_state = Some(AppState {
+            db_key: db_key.to_owned(),
+            db_path: Some(db_path.clone()),
+        });
     }
 
     // Open the database with encryption
     let db_conn = open_encrypted_db(&db_path, &db_key.unwrap())?;
 
     // Initialize tables
-    db_conn.execute_batch(CREATE_SCRIPT)
+    db_conn
+        .execute_batch(CREATE_SCRIPT)
         .map_err(|e| StorageError::SqlError(e.to_string()))?;
 
     Ok(db_conn)
 }
-
-

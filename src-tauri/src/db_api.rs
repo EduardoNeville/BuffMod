@@ -1,7 +1,19 @@
-use std::path::PathBuf;
-use rusqlite::{params, types::{FromSql, FromSqlResult, ToSqlOutput, ValueRef, FromSqlError}, Connection, ToSql};
+use base64::decode;
+use flate2::{read::GzDecoder, write::GzEncoder};
+use flate2::Compression;
+use rusqlite::{
+    params,
+    types::{FromSql, FromSqlError, FromSqlResult, ToSqlOutput, ValueRef},
+    Connection, ToSql,
+};
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Manager};
+use tauri_plugin_fs::FsExt;
+use std::{fs::File, io::Write};
+use std::io::Read;
+use std::path::PathBuf;
 use thiserror::Error;
+
 
 use crate::StateWrapper;
 
@@ -22,6 +34,12 @@ pub enum DbApiError {
 
     #[error("Encryption error: {0}")]
     EncryptionError(String),
+
+    #[error("File error: {0}")]
+    FileError(String),
+
+    #[error("Failed to finish compression: {0}")]
+    CompressionError(String),
 }
 
 // Implement serialization so we can return errors in Tauri commands
@@ -43,9 +61,11 @@ pub struct Client {
     pub phone: Option<String>,
 }
 
-
 /// Opens an SQLite encrypted database
-pub fn open_encrypted_db(db_path: &PathBuf, encryption_key: &str) -> Result<Connection, DbApiError> {
+pub fn open_encrypted_db(
+    db_path: &PathBuf,
+    encryption_key: &str,
+) -> Result<Connection, DbApiError> {
     let conn = Connection::open(db_path).map_err(|e| DbApiError::SqliteError(e))?;
 
     //match conn.execute(
@@ -63,13 +83,16 @@ pub fn open_encrypted_db(db_path: &PathBuf, encryption_key: &str) -> Result<Conn
 #[tauri::command]
 pub fn create_client(state: tauri::State<StateWrapper>, client: Client) -> Result<(), DbApiError> {
     let state_guard = state.lock().unwrap();
-    let db_path = state_guard.as_ref().and_then(|s| s.db_path.clone()).unwrap();
+    let db_path = state_guard
+        .as_ref()
+        .and_then(|s| s.db_path.clone())
+        .unwrap();
     let db_key = state_guard.as_ref().and_then(|s| s.db_key.clone()).unwrap();
 
     let db_conn = open_encrypted_db(&db_path, &db_key)?;
     db_conn.execute(
         "INSERT INTO clients (name, email, phone) VALUES (?1, ?2, ?3)",
-        params![client.name, client.email, client.phone]
+        params![client.name, client.email, client.phone],
     )?;
 
     Ok(())
@@ -83,7 +106,7 @@ pub fn list_clients(state: tauri::State<StateWrapper>) -> Result<Vec<Client>, Db
     let db_path = loc_state.as_ref().and_then(|s| s.db_path.clone()).unwrap();
     let db_conn = open_encrypted_db(&db_path, &db_key)?;
     let mut stmt = db_conn.prepare("SELECT id, name, email, phone FROM clients")?;
-    
+
     let clients_iter = stmt.query_map([], |row| {
         Ok(Client {
             id: row.get(0)?,
@@ -99,7 +122,10 @@ pub fn list_clients(state: tauri::State<StateWrapper>) -> Result<Vec<Client>, Db
 
 /// 📄 Get a single client by ID
 #[tauri::command]
-pub fn get_client_by_id(state: tauri::State<StateWrapper>, client_id: i32) -> Result<Client, DbApiError> {
+pub fn get_client_by_id(
+    state: tauri::State<StateWrapper>,
+    client_id: i32,
+) -> Result<Client, DbApiError> {
     let loc_state = state.lock().unwrap();
     let db_key = loc_state.as_ref().and_then(|s| s.db_key.clone()).unwrap();
     let db_path = loc_state.as_ref().and_then(|s| s.db_path.clone()).unwrap();
@@ -117,7 +143,9 @@ pub fn get_client_by_id(state: tauri::State<StateWrapper>, client_id: i32) -> Re
 
     match client_result {
         Ok(client) => Ok(client),
-        Err(_) => Err(DbApiError::SqliteError(rusqlite::Error::QueryReturnedNoRows)),
+        Err(_) => Err(DbApiError::SqliteError(
+            rusqlite::Error::QueryReturnedNoRows,
+        )),
     }
 }
 
@@ -127,7 +155,7 @@ pub struct Event {
     pub id: Option<i32>,
     pub kind: EventKind, // should be an enum
     pub title: String,
-    pub schedule_time: String,  
+    pub schedule_time: String,
     pub end_time: Option<String>,
     pub client_id: Option<i32>,
     pub completed: bool,
@@ -161,7 +189,7 @@ impl FromSql for EventKind {
                     Ok("socialmedia") => Ok(EventKind::SocialMedia),
                     Ok("meeting") => Ok(EventKind::Meeting),
                     Ok(_other) => Err(FromSqlError::InvalidType), // Unexpected value
-                    Err(_) => Err(FromSqlError::InvalidType),    // UTF-8 decoding failed
+                    Err(_) => Err(FromSqlError::InvalidType),     // UTF-8 decoding failed
                 }
             }
             _ => Err(FromSqlError::InvalidType), // Wrong SQL type
@@ -184,12 +212,13 @@ pub fn create_event(db_conn: &Connection, event: Event) -> Result<i32, DbApiErro
 /// ⏳ List all events
 #[tauri::command]
 pub fn list_events(state: tauri::State<StateWrapper>) -> Result<Vec<Event>, DbApiError> {
-    let loc_state = state.lock().unwrap(); 
+    let loc_state = state.lock().unwrap();
     let db_key = loc_state.as_ref().and_then(|s| s.db_key.clone()).unwrap();
     let db_path = loc_state.as_ref().and_then(|s| s.db_path.clone()).unwrap();
     let db_conn = open_encrypted_db(&db_path, &db_key)?;
-    let mut stmt = db_conn.prepare("SELECT id, title, start_date, end_time, client_id FROM events")?;
-    
+    let mut stmt =
+        db_conn.prepare("SELECT id, title, start_date, end_time, client_id FROM events")?;
+
     let events_iter = stmt.query_map([], |row| {
         Ok(Event {
             id: row.get(0)?,
@@ -208,8 +237,11 @@ pub fn list_events(state: tauri::State<StateWrapper>) -> Result<Vec<Event>, DbAp
 
 /// ⏳ List all events
 #[tauri::command]
-pub fn list_event_kind(state: tauri::State<StateWrapper>, event_kind: EventKind) -> Result<Vec<Event>, DbApiError> {
-    let loc_state = state.lock().unwrap(); 
+pub fn list_event_kind(
+    state: tauri::State<StateWrapper>,
+    event_kind: EventKind,
+) -> Result<Vec<Event>, DbApiError> {
+    let loc_state = state.lock().unwrap();
     let db_key = loc_state.as_ref().and_then(|s| s.db_key.clone()).unwrap();
     let db_path = loc_state.as_ref().and_then(|s| s.db_path.clone()).unwrap();
     let db_conn = open_encrypted_db(&db_path, &db_key)?;
@@ -217,9 +249,9 @@ pub fn list_event_kind(state: tauri::State<StateWrapper>, event_kind: EventKind)
     let mut stmt = db_conn.prepare(
         "SELECT id, kind, title, schedule_time, end_time, client_id, completed 
          FROM events 
-         WHERE kind = ?1"
+         WHERE kind = ?1",
     )?;
-    
+
     let events_iter = stmt.query_map(params![event_kind], |row| {
         Ok(Event {
             id: row.get(0)?,
@@ -236,8 +268,6 @@ pub fn list_event_kind(state: tauri::State<StateWrapper>, event_kind: EventKind)
     Ok(events)
 }
 
-
-
 /// 🧾 Invoice Struct
 #[derive(Serialize, Deserialize)]
 pub struct Invoice {
@@ -245,14 +275,17 @@ pub struct Invoice {
     pub client_id: i32,
     pub amount: f64,
     pub due_date: String,
-    pub status: String,  
+    pub status: String,
     pub event_id: Option<i32>,
 }
 
 /// 💵 Create an invoice
 #[tauri::command]
-pub fn create_invoice(state: tauri::State<StateWrapper>, invoice: Invoice) -> Result<(), DbApiError> {
-    let loc_state = state.lock().unwrap(); 
+pub fn create_invoice(
+    state: tauri::State<StateWrapper>,
+    invoice: Invoice,
+) -> Result<(), DbApiError> {
+    let loc_state = state.lock().unwrap();
     let db_key = loc_state.as_ref().and_then(|s| s.db_key.clone()).unwrap();
     let db_path = loc_state.as_ref().and_then(|s| s.db_path.clone()).unwrap();
     let db_conn = open_encrypted_db(&db_path, &db_key)?;
@@ -270,14 +303,14 @@ pub struct SocialMediaPost {
     pub event_id: Option<i32>,
     pub platform: String,
     pub content: String,
-    pub status: SocialMediaStatus,  
+    pub status: SocialMediaStatus,
 }
 
 #[derive(Serialize, Deserialize)]
 pub enum SocialMediaStatus {
     Drafted,
     Scheduled,
-    Posted
+    Posted,
 }
 
 // Implement ToSql for SocialMediaStatus
@@ -292,7 +325,7 @@ impl ToSql for SocialMediaStatus {
     }
 }
 
-impl FromSql for SocialMediaStatus{
+impl FromSql for SocialMediaStatus {
     fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
         match value {
             ValueRef::Text(bytes) => {
@@ -301,7 +334,7 @@ impl FromSql for SocialMediaStatus{
                     Ok("scheduled") => Ok(SocialMediaStatus::Scheduled),
                     Ok("posted") => Ok(SocialMediaStatus::Posted),
                     Ok(_other) => Err(FromSqlError::InvalidType), // Unexpected value
-                    Err(_) => Err(FromSqlError::InvalidType),    // UTF-8 decoding failed
+                    Err(_) => Err(FromSqlError::InvalidType),     // UTF-8 decoding failed
                 }
             }
             _ => Err(FromSqlError::InvalidType), // Wrong SQL type
@@ -309,27 +342,39 @@ impl FromSql for SocialMediaStatus{
     }
 }
 
+// Deletes temp_files used the storing process
+#[tauri::command]
+pub fn delete_temp_file(path: String) -> Result<(), String> {
+    std::fs::remove_file(&path).map_err(|e| format!("Failed to delete temp file: {}", e))?;
+    Ok(())
+}
 
 /// 📢 Publish social media post
 #[derive(Deserialize)]
 pub struct ScheduleSocialPostArgs {
     pub post: SocialMediaPost,
     pub schedule_time: String,
+    pub file_path: Option<String>,
 }
 #[tauri::command]
-pub fn schedule_social_post(state: tauri::State<StateWrapper>, args: ScheduleSocialPostArgs) -> Result<(), DbApiError> {
+pub fn schedule_social_post(
+    state: tauri::State<StateWrapper>,
+    args: ScheduleSocialPostArgs,
+) -> Result<(), DbApiError> {
     let loc_state = state.lock().unwrap();
     let db_key = loc_state.as_ref().and_then(|s| s.db_key.clone()).unwrap();
     let db_path = loc_state.as_ref().and_then(|s| s.db_path.clone()).unwrap();
     let db_conn = open_encrypted_db(&db_path, &db_key)?;
 
     // Extract from the args
-    let ScheduleSocialPostArgs { post, schedule_time } = args;
+    let ScheduleSocialPostArgs {
+        post,
+        schedule_time,
+        file_path,
+    } = args;
 
     let event_id: Option<i32> = match post.status {
-        SocialMediaStatus::Drafted => {
-            None
-        },
+        SocialMediaStatus::Drafted => None,
         SocialMediaStatus::Scheduled | SocialMediaStatus::Posted => {
             let event = Event {
                 id: None,
@@ -344,62 +389,91 @@ pub fn schedule_social_post(state: tauri::State<StateWrapper>, args: ScheduleSoc
                 completed: match post.status {
                     SocialMediaStatus::Scheduled => false,
                     SocialMediaStatus::Posted => true,
-                    _ => false // Case Draft but can't be due to previous match
+                    _ => false, // Draft case handled above
                 },
             };
-
             let id = create_event(&db_conn, event)?;
             Some(id)
-        },
+        }
     };
-    
-    // Updated SQL to match the struct fields
+
+    // Insert into social_media_posts
     db_conn.execute(
         "INSERT INTO social_media_posts (event_id, platform, content, status) 
          VALUES (?1, ?2, ?3, ?4)",
-        params![event_id, post.platform, post.content, post.status]
+        params![event_id, post.platform, post.content, post.status],
     )?;
 
-    // Create the posts if there is one
-    
+    // Get the inserted social media post ID
+    let social_media_post_id = db_conn.last_insert_rowid() as i32;
+
+    // Handle file if provided
+    println!("File_path: {:?}", &file_path);
+    if let Some(file_path) = file_path {
+        // Read the file
+        let mut file = File::open(&file_path).map_err(|e| DbApiError::FileError(format!("File.open error: {}", e)))?;
+        let mut file_data = Vec::new();
+        file.read_to_end(&mut file_data)
+            .map_err(|e| DbApiError::FileError(format!("file.read_to_end error: {}", e)))?;
+
+        // Compress the file
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder
+            .write_all(&file_data)
+            .map_err(|e| DbApiError::CompressionError(format!("encoder.write_all error: {}", e)))?;
+        let compressed_data = encoder
+            .finish()
+            .map_err(|e| DbApiError::CompressionError(format!("encoder.finish error: {}", e)))?;
+
+        // Store compressed data
+        db_conn
+            .execute(
+                "INSERT INTO posts (social_media_post_id, data) VALUES (?1, ?2)",
+                params![social_media_post_id, compressed_data],
+            )
+            .map_err(|e| DbApiError::SqliteError(e))?;
+    }
+
     Ok(())
 }
-
-
 
 #[derive(Serialize)]
 pub struct SocialMediaPostWithEvent {
     pub id: i32,
-    pub event_id: Option<i32>,        // Can be None if no event is linked
+    pub event_id: Option<i32>, // Can be None if no event is linked
     pub platform: String,
     pub content: String,
     pub status: String,
-    pub schedule_time: Option<String> // Can be None if no event exists
+    pub schedule_time: Option<String>, // Can be None if no event exists
 }
 
 #[tauri::command]
-pub fn list_social_posts(state: tauri::State<StateWrapper>) -> Result<Vec<SocialMediaPostWithEvent>, DbApiError> {
+pub fn list_social_posts(
+    state: tauri::State<StateWrapper>,
+) -> Result<Vec<SocialMediaPostWithEvent>, DbApiError> {
     let loc_state = state.lock().unwrap();
     let db_key = loc_state.as_ref().and_then(|s| s.db_key.clone()).unwrap();
     let db_path = loc_state.as_ref().and_then(|s| s.db_path.clone()).unwrap();
     let db_conn = open_encrypted_db(&db_path, &db_key)?;
 
     // Use LEFT JOIN to include posts without an event_id
-    let mut stmt = db_conn.prepare("
+    let mut stmt = db_conn.prepare(
+        "
         SELECT p.id, p.event_id, p.platform, p.content, p.status, e.schedule_time 
         FROM social_media_posts p 
         LEFT JOIN events e ON p.event_id = e.id
         WHERE p.status='scheduled' OR p.status='posted'
-    ")?;
+    ",
+    )?;
 
     let posts_iter = stmt.query_map([], |row| {
         Ok(SocialMediaPostWithEvent {
             id: row.get(0)?,
-            event_id: row.get(1)?,       // Will be None if NULL in DB
+            event_id: row.get(1)?, // Will be None if NULL in DB
             platform: row.get(2)?,
             content: row.get(3)?,
             status: row.get(4)?,
-            schedule_time: row.get(5)?,  // Will be None if no event
+            schedule_time: row.get(5)?, // Will be None if no event
         })
     })?;
 
@@ -407,4 +481,62 @@ pub fn list_social_posts(state: tauri::State<StateWrapper>) -> Result<Vec<Social
     Ok(posts)
 }
 
+#[tauri::command]
+pub fn retrieve_post_file(
+    state: tauri::State<'_, StateWrapper>,
+    app_handle: tauri::AppHandle,
+    social_media_post_id: i32,
+) -> Result<String, DbApiError> {
+    let state_guard = state.lock().unwrap();
+    let db_path = state_guard
+        .as_ref()
+        .and_then(|s| s.db_path.clone())
+        .unwrap();
+    let db_key = state_guard.as_ref().and_then(|s| s.db_key.clone()).unwrap();
 
+    let db_conn = open_encrypted_db(&db_path, &db_key)?;
+
+    // Query the posts table for the compressed data
+    let mut stmt = db_conn.prepare(
+        "SELECT data FROM posts WHERE social_media_post_id = ?1 LIMIT 1"
+    )?;
+    let mut rows = stmt.query(params![social_media_post_id])?;
+    let row = rows.next()?.unwrap();
+    let compressed_data: Vec<u8> = row.get(0)?;
+
+    // Decompress the data
+    let mut decoder = GzDecoder::new(&compressed_data[..]);
+    let mut decompressed_data = Vec::new();
+    decoder.read_to_end(&mut decompressed_data).unwrap();
+
+    // Determine the file type (basic approach with default extension)
+    let file_extension = ".bin"; // Default fallback
+    #[cfg(feature = "infer")]
+    let file_extension = {
+        let kind = infer::get(&decompressed_data);
+        match kind {
+            Some(k) => k.extension(),
+            None => "bin",
+        }
+    };
+
+    // Construct the output file path in dataDir()/buffmod/
+    let mut data_dir = app_handle.path().data_dir()
+        .map_err(|e| DbApiError::FileError(format!("Failed to resolve app data dir: {}", e)))?;
+    let output_dir = data_dir.join("buffmod");
+    std::fs::create_dir_all(&output_dir).map_err(|e| {
+        DbApiError::FileError(format!("Failed to create directory {}: {}", output_dir.display(), e))
+    })?;
+    let output_file_path = output_dir.join(format!("post_{}.{}", social_media_post_id, file_extension));
+
+    // Write the decompressed data to a file
+    let mut output_file = File::create(&output_file_path).map_err(|e| {
+        DbApiError::FileError(format!("Failed to create file {}: {}", output_file_path.display(), e))
+    })?;
+    output_file.write_all(&decompressed_data).map_err(|e| {
+        DbApiError::FileError(format!("Failed to write to file {}: {}", output_file_path.display(), e))
+    })?;
+
+    // Return the file path as a string for the frontend
+    Ok(output_file_path.to_string_lossy().into_owned())
+}

@@ -15,7 +15,6 @@ pub enum SecureDbError {
 
     #[error("JSON parsing error")]
     JsonParseError(#[from] serde_json::Error),
-
 }
 
 /// Represents the encryption key used for database encryption.
@@ -25,10 +24,8 @@ pub struct EncKey {
 
 impl EncKey {
     pub fn new(user_id: &str) -> Result<Self, SecureDbError> {
-        let salt = Self::get_persistent_salt(user_id)?;  // Use the same salt for this user
-        Ok(EncKey {
-            salt,
-        })
+        let salt = Self::get_persistent_salt(user_id)?; // Use the same salt for this user
+        Ok(EncKey { salt })
     }
 
     /// Derives an AES encryption key using user_id
@@ -40,9 +37,9 @@ impl EncKey {
 
     /// 🔥 Get a Persistent Salt Based on User ID  
     fn get_persistent_salt(user_id: &str) -> Result<Vec<u8>, SecureDbError> {
-        let mut salt = [0u8; 16]; 
+        let mut salt = [0u8; 16];
         let user_hash: GenericArray<u8, U32> = Sha256::digest(user_id.as_bytes());
-        salt.copy_from_slice(&user_hash[..16]); // Use part of the hash as salt  
+        salt.copy_from_slice(&user_hash[..16]); // Use part of the hash as salt
         Ok(salt.to_vec()) // Persistent!
     }
 }
