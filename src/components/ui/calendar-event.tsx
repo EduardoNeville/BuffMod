@@ -47,4 +47,3 @@ const CalendarEvent: React.FC<CalendarEventProps> = ({ index, dayEvent }) => {
 
 export default CalendarEvent;
 
-
