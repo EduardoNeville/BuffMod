@@ -7,8 +7,7 @@ use rusqlite::{
     Connection, ToSql,
 };
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
-use tauri_plugin_fs::FsExt;
+use tauri::Manager;
 use std::{fs::File, io::Write};
 use std::io::Read;
 use std::path::PathBuf;
@@ -82,15 +81,14 @@ pub fn open_encrypted_db(
 
 /// 🏷️ Create a new client
 #[tauri::command]
-pub fn create_client(state: tauri::State<StateWrapper>, client: Client) -> Result<(), DbApiError> {
+pub fn create_client(
+    state: tauri::State<StateWrapper>,
+    client: Client
+) -> Result<(), DbApiError> {
+    // Extract connection from state
     let state_guard = state.lock().unwrap();
-    let db_path = state_guard
-        .as_ref()
-        .and_then(|s| s.db_path.clone())
-        .unwrap();
-    let db_key = state_guard.as_ref().and_then(|s| s.db_key.clone()).unwrap();
+    let db_conn = state_guard.as_ref().and_then(|s| s.db_conn.as_ref()).unwrap();
 
-    let db_conn = open_encrypted_db(&db_path, &db_key)?;
     db_conn.execute(
         "INSERT INTO clients (name, email, phone) VALUES (?1, ?2, ?3)",
         params![client.name, client.email, client.phone],
@@ -102,10 +100,9 @@ pub fn create_client(state: tauri::State<StateWrapper>, client: Client) -> Resul
 /// 📋 List all clients
 #[tauri::command]
 pub fn list_clients(state: tauri::State<StateWrapper>) -> Result<Vec<Client>, DbApiError> {
+    // Extract connection from state
     let loc_state = state.lock().unwrap();
-    let db_key = loc_state.as_ref().and_then(|s| s.db_key.clone()).unwrap();
-    let db_path = loc_state.as_ref().and_then(|s| s.db_path.clone()).unwrap();
-    let db_conn = open_encrypted_db(&db_path, &db_key)?;
+    let db_conn = loc_state.as_ref().and_then(|s| s.db_conn.as_ref()).unwrap();
     let mut stmt = db_conn.prepare("SELECT id, name, email, phone FROM clients")?;
 
     let clients_iter = stmt.query_map([], |row| {
@@ -127,10 +124,9 @@ pub fn get_client_by_id(
     state: tauri::State<StateWrapper>,
     client_id: i32,
 ) -> Result<Client, DbApiError> {
+    // Extract connection from state
     let loc_state = state.lock().unwrap();
-    let db_key = loc_state.as_ref().and_then(|s| s.db_key.clone()).unwrap();
-    let db_path = loc_state.as_ref().and_then(|s| s.db_path.clone()).unwrap();
-    let db_conn = open_encrypted_db(&db_path, &db_key)?;
+    let db_conn = loc_state.as_ref().and_then(|s| s.db_conn.as_ref()).unwrap();
 
     let mut stmt = db_conn.prepare("SELECT id, name, email, phone FROM clients WHERE id = ?1")?;
     let client_result = stmt.query_row([client_id], |row| {
@@ -214,9 +210,8 @@ pub fn create_event(db_conn: &Connection, event: Event) -> Result<i32, DbApiErro
 #[tauri::command]
 pub fn list_events(state: tauri::State<StateWrapper>) -> Result<Vec<Event>, DbApiError> {
     let loc_state = state.lock().unwrap();
-    let db_key = loc_state.as_ref().and_then(|s| s.db_key.clone()).unwrap();
-    let db_path = loc_state.as_ref().and_then(|s| s.db_path.clone()).unwrap();
-    let db_conn = open_encrypted_db(&db_path, &db_key)?;
+    let db_conn = loc_state.as_ref().and_then(|s| s.db_conn.as_ref()).unwrap();
+
     let mut stmt =
         db_conn.prepare("SELECT id, title, start_date, end_time, client_id FROM events")?;
 
@@ -242,10 +237,9 @@ pub fn list_event_kind(
     state: tauri::State<StateWrapper>,
     event_kind: EventKind,
 ) -> Result<Vec<Event>, DbApiError> {
+    // Extract connection from state
     let loc_state = state.lock().unwrap();
-    let db_key = loc_state.as_ref().and_then(|s| s.db_key.clone()).unwrap();
-    let db_path = loc_state.as_ref().and_then(|s| s.db_path.clone()).unwrap();
-    let db_conn = open_encrypted_db(&db_path, &db_key)?;
+    let db_conn = loc_state.as_ref().and_then(|s| s.db_conn.as_ref()).unwrap();
 
     let mut stmt = db_conn.prepare(
         "SELECT id, kind, title, schedule_time, end_time, client_id, completed 
@@ -286,10 +280,9 @@ pub fn create_invoice(
     state: tauri::State<StateWrapper>,
     invoice: Invoice,
 ) -> Result<(), DbApiError> {
+    // Extract connection from state
     let loc_state = state.lock().unwrap();
-    let db_key = loc_state.as_ref().and_then(|s| s.db_key.clone()).unwrap();
-    let db_path = loc_state.as_ref().and_then(|s| s.db_path.clone()).unwrap();
-    let db_conn = open_encrypted_db(&db_path, &db_key)?;
+    let db_conn = loc_state.as_ref().and_then(|s| s.db_conn.as_ref()).unwrap();
     db_conn.execute(
         "INSERT INTO invoices (client_id, amount, due_date, status, event_id) VALUES (?1, ?2, ?3, ?4, ?5)",
         params![invoice.client_id, invoice.amount, invoice.due_date, invoice.status, invoice.event_id]
@@ -355,10 +348,9 @@ pub fn schedule_social_post(
     state: tauri::State<StateWrapper>,
     args: ScheduleSocialPostArgs,
 ) -> Result<(), DbApiError> {
+    // Extract connection from state
     let loc_state = state.lock().unwrap();
-    let db_key = loc_state.as_ref().and_then(|s| s.db_key.clone()).unwrap();
-    let db_path = loc_state.as_ref().and_then(|s| s.db_path.clone()).unwrap();
-    let db_conn = open_encrypted_db(&db_path, &db_key)?;
+    let db_conn = loc_state.as_ref().and_then(|s| s.db_conn.as_ref()).unwrap();
 
     // Extract from the args
     let ScheduleSocialPostArgs {
@@ -449,10 +441,9 @@ pub struct SocialMediaPostWithEvent {
 pub fn list_social_posts(
     state: tauri::State<StateWrapper>,
 ) -> Result<Vec<SocialMediaPostWithEvent>, DbApiError> {
+    // Extract connection from state
     let loc_state = state.lock().unwrap();
-    let db_key = loc_state.as_ref().and_then(|s| s.db_key.clone()).unwrap();
-    let db_path = loc_state.as_ref().and_then(|s| s.db_path.clone()).unwrap();
-    let db_conn = open_encrypted_db(&db_path, &db_key)?;
+    let db_conn = loc_state.as_ref().and_then(|s| s.db_conn.as_ref()).unwrap();
 
     // Use LEFT JOIN to include posts without an event_id
     let mut stmt = db_conn.prepare(
@@ -485,14 +476,9 @@ pub fn retrieve_post_file(
     app_handle: tauri::AppHandle,
     social_media_post_id: i32,
 ) -> Result<String, DbApiError> {
-    let state_guard = state.lock().unwrap();
-    let db_path = state_guard
-        .as_ref()
-        .and_then(|s| s.db_path.clone())
-        .unwrap();
-    let db_key = state_guard.as_ref().and_then(|s| s.db_key.clone()).unwrap();
-
-    let db_conn = open_encrypted_db(&db_path, &db_key)?;
+    // Extract connection from state
+    let loc_state = state.lock().unwrap();
+    let db_conn = loc_state.as_ref().and_then(|s| s.db_conn.as_ref()).unwrap();
 
     // Query the posts table for the compressed data
     let mut stmt = db_conn.prepare(

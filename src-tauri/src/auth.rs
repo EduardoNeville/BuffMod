@@ -1,3 +1,4 @@
+use crate::db_api::{open_encrypted_db, DbApiError};
 use crate::secure_db_access::SecureDbError;
 use crate::storage::{get_database_path, new_db, StorageError};
 use crate::supabase::{Supabase, SupabaseError};
@@ -19,6 +20,9 @@ pub enum AuthError {
 
     #[error("[auth.rs::storage_error] Storage handling error: {0}")]
     StorageError(#[from] StorageError),
+
+    #[error("[auth.rs::db_api] Storage handling error: {0}")]
+    DbApiError(#[from] DbApiError),
 
     #[error("[auth.rs::stronghold_error] Secure Stronghold error: {0}")]
     StrongholdError(#[from] stronghold::Error),
@@ -60,11 +64,6 @@ pub async fn sign_in(
         .await
         .map_err(|e| AuthError::SupabaseError(e))?;
 
-    println!(
-        "[auth.rs::sign_in] Successfully authenticated user_id: {:?}",
-        user_id
-    );
-
     let enc_key =
         crate::secure_db_access::EncKey::new(&user_id).map_err(|e| AuthError::SecureDbError(e))?;
 
@@ -72,42 +71,25 @@ pub async fn sign_in(
         .derive_encryption_key(&user_id)
         .map_err(|e| AuthError::SecureDbError(e))?;
 
-    // 🛠️ Store DB encryption key in app state
+    // DB Connection
     let str_db_key = general_purpose::STANDARD.encode(&db_key);
+    let db_path = get_database_path(&app_handle, &&user_id)?;
+    let db_conn = open_encrypted_db(&db_path, &str_db_key)?;
     {
         let mut loc_state = state.lock().unwrap();
-        println!("Loc state started");
-        if let Some(ref mut s) = *loc_state {
-            println!("Storing db_key");
-            s.db_key = Some(str_db_key.to_owned());
-        } else {
-            *loc_state = Some(AppState {
-                db_key: Some(str_db_key.to_owned()),
-                db_path: None,
-            });
-        }
-    } // Lock is released here when loc_state is dropped
-
-    println!("New db starting...");
-    new_db(state.to_owned(), &app_handle, &user_id)?;
-    println!("New db created...");
-
-    {
-        println!("Finding db_path");
-        let mut loc_state = state.lock().unwrap();
-
-        let db_path = get_database_path(&app_handle, &&user_id)?;
 
         // ✅ Update AppState with the new database path
         if let Some(ref mut s) = *loc_state {
-            s.db_path = Some(db_path.clone());
+            s.db_conn = Some(db_conn);
         } else {
             *loc_state = Some(AppState {
-                db_key: Some(str_db_key.to_owned()),
-                db_path: Some(db_path.clone()),
+                db_conn: Some(db_conn),
             });
         }
     }
+
+    new_db(state.to_owned())?;
+
 
     Ok(vec![
         Entry {
@@ -136,31 +118,29 @@ pub async fn initial_sign_up(
         .initial_sign_up(&email, &password, &org_name, &user_name)
         .await?;
 
-    println!("user_id: {:?}", user_id);
 
     // Generate DB encryption key
-    println!("Encrypting key...");
     let enc_key = crate::secure_db_access::EncKey::new(&user_id)?;
     let db_key = enc_key.derive_encryption_key(&user_id)?;
-    println!("Key encrypted...");
 
-    // 🛠️ Store DB encryption key in app state
+    // DB Connection
     let str_db_key = general_purpose::STANDARD.encode(&db_key);
+    let db_path = get_database_path(&app_handle, &&user_id)?;
+    let db_conn = open_encrypted_db(&db_path, &str_db_key)?;
     {
         let mut loc_state = state.lock().unwrap();
-        println!("Loc state started");
+
+        // ✅ Update AppState with the new database path
         if let Some(ref mut s) = *loc_state {
-            println!("Storing db_key");
-            s.db_key = Some(str_db_key.to_owned());
+            s.db_conn = Some(db_conn);
         } else {
             *loc_state = Some(AppState {
-                db_key: Some(str_db_key.to_owned()),
-                db_path: None,
+                db_conn: Some(db_conn),
             });
         }
-    } // Lock is released here when loc_state is dropped
-    println!("Createding db...");
-    new_db(state.to_owned(), &app_handle, &user_id)?;
+    }
+
+    new_db(state.to_owned())?;
 
     Ok(vec![
         Entry {
@@ -199,25 +179,28 @@ async fn invite_sign_up(
         .as_str()
         .ok_or(AuthError::InvalidUserData)?;
 
-    println!("user_id: {:?}", user_id);
-
     // Generate DB encryption key
     let enc_key = crate::secure_db_access::EncKey::new(user_id)?;
     let db_key = enc_key.derive_encryption_key(user_id)?;
 
-    // 🛠️ Store DB encryption key in app state
+    // DB Connection
     let str_db_key = general_purpose::STANDARD.encode(&db_key);
-    let mut loc_state = state.lock().unwrap();
-    if let Some(ref mut s) = *loc_state {
-        s.db_key = Some(str_db_key.to_owned());
-    } else {
-        *loc_state = Some(AppState {
-            db_key: Some(str_db_key.to_owned()),
-            db_path: None,
-        });
+    let db_path = get_database_path(&app_handle, &&user_id)?;
+    let db_conn = open_encrypted_db(&db_path, &str_db_key)?;
+    {
+        let mut loc_state = state.lock().unwrap();
+
+        // ✅ Update AppState with the new database path
+        if let Some(ref mut s) = *loc_state {
+            s.db_conn = Some(db_conn);
+        } else {
+            *loc_state = Some(AppState {
+                db_conn: Some(db_conn),
+            });
+        }
     }
 
-    new_db(state.to_owned(), &app_handle, user_id)?;
+    new_db(state.to_owned())?;
 
     Ok(vec![user_id.to_string(), str_db_key])
 }

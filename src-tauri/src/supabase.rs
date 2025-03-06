@@ -72,7 +72,6 @@ impl Supabase {
     /// Handles API response and extracts JSON
     async fn handle_response(response: Response) -> Result<Value, SupabaseError> {
         if response.status().is_success() {
-            println!("response is sucess: {:?}", response);
             response.json::<Value>().await.map_err(|e| {
                 println!("Error: {:?}", e);
                 return SupabaseError::NetworkError(e);
@@ -107,11 +106,9 @@ impl Supabase {
             .await?;
 
         let user_data = Supabase::handle_response(response).await?; // Get user data
-        println!("User data: initial_sign_up: {:?}", user_data);
 
         let user_id = user_data.get("id").unwrap().as_str().unwrap();
 
-        println!("User id: initial_sign_up: {:?}", user_id);
 
         // Create organization
         //let org_id = self.create_organization(user_id, org_name).await?;
@@ -339,7 +336,6 @@ impl Supabase {
             .await?;
 
         let user_data = Supabase::handle_response(response).await?; // Get user data
-        println!("User data: initial_sign_up: {:?}", user_data);
 
         let user_id = user_data
             .get("user")

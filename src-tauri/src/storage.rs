@@ -55,9 +55,9 @@ pub fn get_database_path(app_handle: &AppHandle, user_id: &str) -> Result<PathBu
     println!("data_path: {:?}", data_path);
 
     if !data_path.exists() {
-        return Err(StorageError::InvalidDbPath {
-            path: Some(data_path.clone()),
-        });
+        std::fs::File::create(&data_path).map_err(|e| {
+            DbApiError::FileError(format!("Failed to create db {}: {}", data_path.display(), e))
+        })?; 
     }
 
     Ok(data_path)
@@ -75,45 +75,14 @@ pub fn get_database_path(app_handle: &AppHandle, user_id: &str) -> Result<PathBu
 /// Initialize the storage with encryption
 pub fn new_db(
     state: tauri::State<StateWrapper>,
-    app_handle: &AppHandle,
-    user_id: &str,
-) -> Result<Connection, StorageError> {
-    let mut loc_state = state.lock().unwrap();
-    let db_key = loc_state.as_ref().and_then(|s| s.db_key.clone());
-
-    // Get DB path, or create the missing directory
-    let mut db_path = app_handle
-        .path()
-        .data_dir()
-        .map_err(StorageError::TauriError)?;
-
-    db_path = db_path.join(format!("buffmod/storage/{}.sqlite", user_id));
-
-    println!("data_path: {:?}", db_path);
-
-    if let Some(parent) = db_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|_| {
-            StorageError::DatabaseError(rusqlite::Error::InvalidPath(db_path.clone()))
-        })?;
-    };
-
-    // ✅ Update AppState with the new database path
-    if let Some(ref mut s) = *loc_state {
-        s.db_path = Some(db_path.clone());
-    } else {
-        *loc_state = Some(AppState {
-            db_key: db_key.to_owned(),
-            db_path: Some(db_path.clone()),
-        });
-    }
-
-    // Open the database with encryption
-    let db_conn = open_encrypted_db(&db_path, &db_key.unwrap())?;
+) -> Result<(), StorageError> {
+    let state_guard = state.lock().unwrap();
+    let db_conn = state_guard.as_ref().and_then(|s| s.db_conn.as_ref()).unwrap();
 
     // Initialize tables
     db_conn
         .execute_batch(CREATE_SCRIPT)
         .map_err(|e| StorageError::SqlError(e.to_string()))?;
+    Ok(())
 
-    Ok(db_conn)
 }

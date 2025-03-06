@@ -4,17 +4,14 @@ pub mod secure_db_access;
 pub mod storage;
 pub mod supabase;
 
-use std::{path::PathBuf, sync::Mutex};
+use std::sync::Mutex;
+use rusqlite::Connection;
 use tauri::Manager;
 
 use tauri_plugin_stronghold;
 
-use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppState {
-    pub db_key: Option<String>,
-    pub db_path: Option<PathBuf>,
+    pub db_conn: Option<Connection>,
 }
 
 type StateWrapper = Mutex<Option<AppState>>;
