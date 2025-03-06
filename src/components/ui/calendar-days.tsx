@@ -1,20 +1,67 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import CalendarEvent, { CalendarEntry } from "@/components/ui/calendar-event"; // Import Event interface
+import CalendarEvent, { CalendarEntry } from "@/components/ui/calendar-event";
+import { EventKind } from "@/lib/types";
+import { invoke } from "@tauri-apps/api/core";
 
 interface CalendarDaysProps {
   currentDay: Date;
   onSelect: (day: Date) => void;
-  events: CalendarEntry[];
+  eventKind?: EventKind;
 }
 
-const CalendarDays: React.FC<CalendarDaysProps> = ({ currentDay, onSelect, events }) => {
+const CalendarDays: React.FC<CalendarDaysProps> = ({ currentDay, onSelect, eventKind }) => {
   const firstDayOfMonth = new Date(currentDay.getFullYear(), currentDay.getMonth(), 1);
-  const firstWeekday = firstDayOfMonth.getDay();
-  const totalDays = new Date(currentDay.getFullYear(), currentDay.getMonth() + 1, 0).getDate();
+  const firstWeekday = firstDayOfMonth.getDay() === 0 ? 6 : firstDayOfMonth.getDay() - 1; // Adjust for Monday start
+  const lastDay = new Date(currentDay.getFullYear(), currentDay.getMonth() + 1, 0);
+  const totalDays = lastDay.getDate();
   const today = new Date();
 
-  const formatDate = (date: Date) => date.toISOString().split("T")[0];
+  // Format date as YYYY-MM-DD in local time
+  const formatDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const [events, setEvents] = useState<CalendarEntry[]>([]);
+
+  const fetchEvents = () => {
+    if (eventKind) {
+      console.log("firstDayOfMonth", formatDate(firstDayOfMonth));
+      console.log("lastDay", formatDate(lastDay));
+      invoke<CalendarEntry[]>("list_events_time_kind", {
+        args: {
+          event_kind: eventKind,
+          start_date: formatDate(firstDayOfMonth),
+          end_date: formatDate(lastDay),
+        },
+      })
+        .then((data) => {
+          console.log("Fetched events:", data);
+          setEvents(data);
+        })
+        .catch((error) => console.error("Error fetching events:", error));
+    } else {
+      invoke<CalendarEntry[]>("list_events")
+        .then((data) => {
+          console.log("Fetched events:", data);
+          setEvents(data);
+        })
+        .catch((error) => console.error("Error fetching events:", error));
+    }
+  };
+
+  // Fetch events on mount
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  // Log events when they update
+  useEffect(() => {
+    console.log("Events updated:", events);
+  }, [events]);
 
   const days = Array(42)
     .fill(null)
@@ -27,8 +74,15 @@ const CalendarDays: React.FC<CalendarDaysProps> = ({ currentDay, onSelect, event
       const isToday = today.toDateString() === date.toDateString();
       const isSelected = currentDay.toDateString() === date.toDateString();
 
-      const dayEvents = events.filter((event) => event.schedule_time === formattedDate);
+      // Adjust filter to match date part only, assuming schedule_time may include time
+      const dayEvents = events.filter((event) => {
+        const eventDate = event.schedule_time.split(" ")[0]; // Extract YYYY-MM-DD
+        return eventDate === formattedDate;
+      });
       const hasEvents = dayEvents.length > 0;
+
+      // Debugging log to check events per day
+      console.log(`Day ${formattedDate}: ${dayEvents.length} events`);
 
       return (
         <Dialog key={i}>
@@ -44,10 +98,9 @@ const CalendarDays: React.FC<CalendarDaysProps> = ({ currentDay, onSelect, event
               <div className="text-xs">{isValid ? dayNum : ""}</div>
               {hasEvents && (
                 <div className="flex items-center bg-blue-100 text-xs mt-1 p-1 rounded-md cursor-pointer shadow-md">
-                  {dayEvents[0].icon} &nbsp; {dayEvents[0].name}
+                  {dayEvents[0].title}
                 </div>
               )}
-
               {dayEvents.length > 1 && (
                 <div className="absolute bottom-1 right-1 bg-gray-400 text-white text-xs px-2 py-0.5 rounded-md">
                   +{dayEvents.length - 1}
@@ -57,19 +110,16 @@ const CalendarDays: React.FC<CalendarDaysProps> = ({ currentDay, onSelect, event
           </DialogTrigger>
           <DialogContent className="w-4/5 rounded-md">
             <DialogHeader>
-              {/** TODO: Translate **/}
               <DialogTitle>Schedule for {formattedDate}</DialogTitle>
               <DialogDescription>Here are your events for the day.</DialogDescription>
             </DialogHeader>
-
-            {/** TODO: Translate **/}
             {dayEvents.length > 0 ? (
               <div className="space-y-3">
                 {dayEvents.map((event, index) => (
-                  <CalendarEvent 
+                  <CalendarEvent
                     key={`${event.schedule_time}-${index}`}
                     index={index}
-                    dayEvent={event} 
+                    dayEvent={event}
                   />
                 ))}
               </div>

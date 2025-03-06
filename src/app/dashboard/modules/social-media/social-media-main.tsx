@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import CalendarEvents from "@/components/ui/calendar-events";
 import SocialMediaHeader from "@/app/dashboard/modules/social-media/social-media-header";
+import { EventKind } from "@/lib/types";
 
 export interface SocialMediaPost {
   id?: number;
@@ -31,7 +32,7 @@ export default function SocialMediaMain() {
   return (
     <div>
       <SocialMediaHeader fetchPosts={fetchPosts} />
-      <CalendarEvents />
+      <CalendarEvents eventKind={EventKind.SocialMedia} />
       
       <div className="p-5">
         <h2 className="text-lg font-semibold mb-3">Scheduled & Recent Posts</h2>

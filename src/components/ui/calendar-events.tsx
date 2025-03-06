@@ -2,9 +2,13 @@ import React, { useState } from "react";
 import { Button } from "./button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import CalendarDays from "@/components/ui/calendar-days";
-import { CalendarEntry } from "@/components/ui/calendar-event"; // Import Event interface
+import { EventKind } from "@/lib/types";
 
-const CalendarEvents: React.FC = () => {
+interface CalendarEventsProps {
+  eventKind?: EventKind; // Optional event kind prop
+}
+
+const CalendarEvents: React.FC<CalendarEventsProps> = ({ eventKind }) => {
   const today = new Date();
   const [currentDay, setCurrentDay] = useState<Date>(today);
 
@@ -18,14 +22,6 @@ const CalendarEvents: React.FC = () => {
   const changeMonth = (offset: number) => {
     setCurrentDay(new Date(currentDay.getFullYear(), currentDay.getMonth() + offset, 1));
   };
-
-  // TODO: Backend
-  const sampleEvents: CalendarEntry[] = [
-    { schedule_time: "2025-02-10", name: "Meeting", icon: "📅", startTime: "09:00", endTime: "10:30" },
-    { schedule_time: "2025-02-10", name: "Party", icon: "🎉", startTime: "18:00", endTime: "20:00" },
-    { schedule_time: "2025-02-15", name: "Dentist", icon: "🦷", startTime: "14:00", endTime: "14:45" },
-    { schedule_time: "2025-02-20", name: "Flight", icon: "✈️", startTime: "06:00", endTime: "09:00" }
-  ];
 
   return (
     <div className="w-full mx-auto bg-[var(--primary-color)] text-[var(--text-color)] rounded-lg p-5 shadow-lg">
@@ -49,7 +45,11 @@ const CalendarEvents: React.FC = () => {
       <div className="grid grid-cols-7 gap-1 mb-2 font-semibold">
         {weekdays.map(day => <div key={day} className="text-center">{day}</div>)}
       </div>
-      <CalendarDays currentDay={currentDay} onSelect={setCurrentDay} events={sampleEvents} />
+      <CalendarDays 
+        currentDay={currentDay} 
+        onSelect={setCurrentDay} 
+        eventKind={eventKind}
+      />
     </div>
   );
 };

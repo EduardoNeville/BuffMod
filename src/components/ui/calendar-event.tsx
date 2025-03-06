@@ -1,14 +1,16 @@
 import React from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { EventKind } from "@/lib/types";
+
 
 export interface CalendarEntry {
+  kind: EventKind;
+  title: string;
   schedule_time: string;
-  name: string;
-  icon: string;
-  startTime: string;
-  endTime?: string;
-  description: string;
-  status: "upcoming" | "ongoing" | "completed";
+  end_time?: string;
+  client_id?: number;
+  description?: string;
+  completed: boolean;
 }
 
 interface CalendarEventProps {

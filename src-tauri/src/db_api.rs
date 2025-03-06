@@ -147,7 +147,7 @@ pub fn get_client_by_id(
 }
 
 /// 📌 Event Struct
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Event {
     pub id: Option<i32>,
     pub kind: EventKind, // should be an enum
@@ -158,7 +158,7 @@ pub struct Event {
     pub completed: bool,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum EventKind {
     Default,
     SocialMedia,
@@ -248,6 +248,49 @@ pub fn list_event_kind(
     )?;
 
     let events_iter = stmt.query_map(params![event_kind], |row| {
+        Ok(Event {
+            id: row.get(0)?,
+            kind: row.get(1)?,
+            title: row.get(2)?,
+            schedule_time: row.get(3)?,
+            end_time: row.get(4)?,
+            client_id: row.get(5)?,
+            completed: row.get(6)?,
+        })
+    })?;
+
+    let events: Vec<Event> = events_iter.filter_map(Result::ok).collect();
+    println!("events: {:?}", events);
+    Ok(events)
+}
+
+/// Events from a data period & kind
+#[derive(Deserialize)]
+pub struct ListEventsTimeKind {
+    pub event_kind: EventKind,
+    pub start_date: String,
+    pub end_date: String,
+}
+#[tauri::command]
+pub fn list_events_time_kind(
+    state: tauri::State<StateWrapper>,
+    args: ListEventsTimeKind,
+) -> Result<Vec<Event>, DbApiError> {
+    let loc_state = state.lock().unwrap();
+    let db_conn = loc_state.as_ref().and_then(|s| s.db_conn.as_ref()).unwrap();
+
+    let mut stmt = db_conn.prepare(
+        "SELECT id, kind, title, schedule_time, end_time, client_id, completed 
+         FROM events 
+         WHERE kind = ?1 AND schedule_time>=?2 AND schedule_time <= ?3",
+    )?;
+
+    let events_iter = stmt.query_map(
+        params![
+            args.event_kind,
+            args.start_date,
+            args.end_date
+        ], |row| {
         Ok(Event {
             id: row.get(0)?,
             kind: row.get(1)?,

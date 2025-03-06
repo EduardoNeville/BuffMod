@@ -40,8 +40,10 @@ async fn main() {
             db_api::get_client_by_id,
             db_api::schedule_social_post,
             db_api::list_social_posts,
+            db_api::list_events,
             db_api::list_event_kind,
-            db_api::retrieve_post_file
+            db_api::retrieve_post_file,
+            db_api::list_events_time_kind
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

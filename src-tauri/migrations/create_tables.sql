@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS events (
     end_time TIMESTAMP,
     client_id INTEGER,
     description TEXT,
-    completed BOOLEAN,
+    completed BOOLEAN NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL
 );
