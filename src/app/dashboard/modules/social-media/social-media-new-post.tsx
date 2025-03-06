@@ -30,6 +30,7 @@ const socialMediaPlatforms = [
 ];
 
 export default function SocialMediaNewPost({ fetchPosts }: { fetchPosts: () => void }) {
+  const [isOpen, setIsOpen] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [content, setContent] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -136,9 +137,9 @@ export default function SocialMediaNewPost({ fetchPosts }: { fetchPosts: () => v
   };
 
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="default">
+        <Button variant="default" onClick={() => setIsOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Create Post
         </Button>
