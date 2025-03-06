@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { DateTimePicker } from "@/components/ui/day-time-picker";
+import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Checkbox } from "@/components/ui/checkbox";
 
 const socialMediaPlatforms = [
@@ -37,10 +37,22 @@ export default function SocialMediaNewPost({ fetchPosts }: { fetchPosts: () => v
   const [filePreview, setFilePreview] = useState<JSX.Element | null>(null);
   const [filePath, setFilePath] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
-  const [scheduleTime, setScheduleTime] = useState<string | undefined>(undefined);
   const [isScheduling, setIsScheduling] = useState(false);
 
   const { toast } = useToast();
+
+  //Reset values if dialog isn't open
+  useEffect(() => {
+    if (!isOpen) {
+      // Reset states
+      setSelectedPlatforms([]);
+      setContent("");
+      setFile(null);
+      setFilePreview(null);
+      setScheduleDate(undefined);
+      setIsScheduling(false);
+    }
+  }, [isOpen]);
 
   /** ✅ Toggle platform selection */
   const handlePlatformClick = (platform: string) => {
@@ -64,7 +76,6 @@ export default function SocialMediaNewPost({ fetchPosts }: { fetchPosts: () => v
       setFilePreview(null);
     }
   }, [file]);
-
   /** ✅ Handle File Upload */
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     console.log("Handle FileUpload...")
@@ -121,14 +132,6 @@ export default function SocialMediaNewPost({ fetchPosts }: { fetchPosts: () => v
 
       toast({ title: "Success!", description: `Post ${postStatus.toLowerCase()} successfully!` });
 
-      // Reset states
-      setSelectedPlatforms([]);
-      setContent("");
-      setFile(null);
-      setFilePreview(null);
-      setScheduleDate(undefined);
-      setScheduleTime(undefined);
-      setIsScheduling(false);
       fetchPosts();
     } catch (error) {
       console.error(error);
@@ -197,9 +200,7 @@ export default function SocialMediaNewPost({ fetchPosts }: { fetchPosts: () => v
           </div>
           {isScheduling && (
             <DateTimePicker
-              selectedDate={scheduleDate}
-              setSelectedDate={setScheduleDate}
-              setSelectedTime={setScheduleTime}
+              hourCycle={24} value={scheduleDate} onChange={setScheduleDate}
             />
           )}
         </div>
