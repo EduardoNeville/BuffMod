@@ -12,7 +12,6 @@ const CalendarEvents: React.FC<CalendarEventsProps> = ({ eventKind }) => {
   const today = new Date();
   const [currentDay, setCurrentDay] = useState<Date>(today);
 
-  // TODO: Translate
   const months = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
